@@ -466,7 +466,7 @@
         let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null;
         let globalPlotData = { combined: [], bridge: [], core: [] }, lastSimulatedMetrics = {};
         
-        let ingestedRows = []; // Temporal storage bucket for mapping uploaded balances
+        let ingestedRows = []; 
 
         function initWorker() {
             const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -490,7 +490,6 @@
             simWorker.postMessage(simulationConfig);
         }
 
-        // CSV Native Standard Parser Module
         function parseCSVLine(text) {
             let p = '', r = []; let q = false;
             for (let i = 0; i < text.length; i++) {
@@ -502,7 +501,7 @@
             r.push(p.trim()); return r;
         }
 
-      function handleCSVUpload(input) {
+        function handleCSVUpload(input) {
             const file = input.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -518,7 +517,6 @@
                     if (!line.trim()) continue;
                     let parsed = parseCSVLine(line);
                     
-                    // Look for Fidelity standard positions statement headers
                     if (parsed.some(cell => cell.toLowerCase().includes('current value') || cell.toLowerCase().includes('balance'))) {
                         headers = parsed.map(h => h.toLowerCase());
                         valueIdx = headers.findIndex(h => h.includes('current value') || h.includes('balance') || h.includes('value'));
@@ -528,19 +526,16 @@
                     }
 
                     if (valueIdx !== -1 && parsed[valueIdx]) {
-                        // Strip non-numeric artifacts
                         let rawVal = parsed[valueIdx].replace(/[\$,\(\)\s]/g, '');
                         let numericVal = parseFloat(rawVal);
                         if (!isNaN(numericVal) && numericVal > 0) {
                             let label = parsed[descIdx] || parsed[0] || "Unknown Holding";
                             let accountName = accountIdx !== -1 ? parsed[accountIdx] : "Brokerage Asset";
                             
-                            // Prevent legal text parsing at the bottom of standard exports
                             if (label.toLowerCase().includes('total') || label.toLowerCase().includes('disclaimer')) continue;
 
-                            // Intelligent Auto-Classification Pass
                             let combinedLabelText = `${accountName} ${label}`.toLowerCase();
-                            let initialPoolSelection = 'bridge'; // Default fallback
+                            let initialPoolSelection = 'bridge'; 
 
                             if (combinedLabelText.includes('ira') || 
                                 combinedLabelText.includes('401k') || 
@@ -569,8 +564,7 @@
                 openCSVModal();
             };
             reader.readAsText(file);
-            input.value = ''; // wipe input tracker
-        }
+            input.value = ''; 
         }
 
         function openCSVModal() {
@@ -580,14 +574,19 @@
             ingestedRows.forEach((row, idx) => {
                 const item = document.createElement('div');
                 item.className = "flex justify-between items-center bg-slate-950/40 border border-slate-800 p-3 rounded-xl gap-4";
+                
+                // Set the initial classes dynamically based on the smart auto-classification pass
+                const bridgeClass = row.pool === 'bridge' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white";
+                const coreClass = row.pool === 'core' ? "bg-cyan-600 text-white shadow" : "text-slate-400 hover:text-white";
+
                 item.innerHTML = `
                     <div class="truncate max-w-[60%]">
                         <span class="block text-xs font-semibold text-white truncate" title="${row.label}">${row.label}</span>
                         <span class="block text-[10px] font-mono text-slate-400 mt-0.5">$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                     </div>
                     <div class="flex gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
-                        <button onclick="toggleRowPool(${idx}, 'bridge')" id="modal-btn-bridge-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all bg-emerald-600 text-white shadow">Bridge</button>
-                        <button onclick="toggleRowPool(${idx}, 'core')" id="modal-btn-core-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all text-slate-400 hover:text-white">Core</button>
+                        <button onclick="toggleRowPool(${idx}, 'bridge')" id="modal-btn-bridge-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${bridgeClass}">Bridge</button>
+                        <button onclick="toggleRowPool(${idx}, 'core')" id="modal-btn-core-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${coreClass}">Core</button>
                     </div>
                 `;
                 container.appendChild(item);
@@ -623,7 +622,6 @@
             let finalBridge = 0, finalCore = 0;
             ingestedRows.forEach(r => { if (r.pool === 'bridge') finalBridge += r.value; else finalCore += r.value; });
             
-            // Set slider limits gracefully if balances overshoot default values
             if (finalBridge > 2000000) document.getElementById('input-bridge').max = Math.ceil(finalBridge * 1.2);
             if (finalCore > 5000000) document.getElementById('input-core').max = Math.ceil(finalCore * 1.2);
 
