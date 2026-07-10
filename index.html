@@ -502,7 +502,7 @@
             r.push(p.trim()); return r;
         }
 
-        function handleCSVUpload(input) {
+      function handleCSVUpload(input) {
             const file = input.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -538,10 +538,25 @@
                             // Prevent legal text parsing at the bottom of standard exports
                             if (label.toLowerCase().includes('total') || label.toLowerCase().includes('disclaimer')) continue;
 
+                            // Intelligent Auto-Classification Pass
+                            let combinedLabelText = `${accountName} ${label}`.toLowerCase();
+                            let initialPoolSelection = 'bridge'; // Default fallback
+
+                            if (combinedLabelText.includes('ira') || 
+                                combinedLabelText.includes('401k') || 
+                                combinedLabelText.includes('403b') || 
+                                combinedLabelText.includes('hsa') || 
+                                combinedLabelText.includes('roth')) {
+                                initialPoolSelection = 'core';
+                            } else if (combinedLabelText.includes('individual') || 
+                                       combinedLabelText.includes('brokerage')) {
+                                initialPoolSelection = 'bridge';
+                            }
+
                             ingestedRows.push({
                                 label: `${accountName} - ${label}`,
                                 value: numericVal,
-                                pool: 'bridge' // default allocation mapping target
+                                pool: initialPoolSelection
                             });
                         }
                     }
@@ -555,6 +570,7 @@
             };
             reader.readAsText(file);
             input.value = ''; // wipe input tracker
+        }
         }
 
         function openCSVModal() {
