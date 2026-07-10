@@ -13,8 +13,6 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.05); }
         ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.2); border-radius: 4px; }
-        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
@@ -28,23 +26,23 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Production-Grade 10k Monte Carlo Engine</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Production-Grade 10,000 Path Monte Carlo Simulator</h1>
             </div>
-            <p class="text-xs text-slate-400 mt-1">Split-volatility simulation, 55/15 rules, and inflation-indexed progressive taxation</p>
+            <p class="text-xs text-slate-400 mt-1">Multi-threaded asynchronous processing with integrated progressive tax logic</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
             <label class="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-amber-400 px-3 py-2 rounded-lg transition-all border border-slate-700 cursor-pointer active:scale-95 font-semibold shadow-md">
-                <span class="material-icons text-sm">file_upload</span> Ingest Fidelity CSV
+                <span class="material-icons text-sm">file_upload</span> Ingest Brokerage CSV (Fidelity)
                 <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleCSVUpload(this)">
             </label>
-            <button onclick="exportSummaryData()" class="flex items-center gap-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white px-3.5 py-2 rounded-lg transition-all active:scale-95 font-semibold shadow-md">
-                <span class="material-icons text-sm">share</span> Export Summary
+            <button onclick="exportSummaryData()" class="flex items-center gap-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white px-3.5 py-2 rounded-lg transition-all active:scale-95 font-semibold shadow-md" title="Export a clean text breakdown">
+                <span class="material-icons text-sm">share</span> Export Summary Breakdown
             </button>
             <button onclick="saveCurrentAsBaseline()" class="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-lg transition-all border border-slate-700 active:scale-95">
-                <span class="material-icons text-sm text-amber-400">save</span> Save Baseline
+                <span class="material-icons text-sm text-amber-400">save</span> Save My Baseline
             </button>
             <button onclick="loadUserBaseline()" id="btn-reset-baseline" class="flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg transition-all opacity-40 cursor-not-allowed" disabled>
-                <span class="material-icons text-sm">settings_backup_restore</span> Snap to Baseline
+                <span class="material-icons text-sm">settings_backup_restore</span> Snap to My Baseline
             </button>
         </div>
     </header>
@@ -61,7 +59,7 @@
                 <button onclick="closeCSVModal()" class="text-slate-400 hover:text-white"><span class="material-icons">close</span></button>
             </div>
             <div class="p-5 overflow-y-auto space-y-3 flex-1" id="csv-rows-container">
-            </div>
+                </div>
             <div class="p-4 border-t border-slate-800 bg-slate-950/40 flex justify-between items-center text-xs">
                 <div class="flex gap-4">
                     <div>Bridge Delta: <span id="modal-bridge-total" class="font-mono font-bold text-emerald-400">$0</span></div>
@@ -76,7 +74,7 @@
 
     <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
         
-        <section class="w-full lg:w-[400px] bg-slate-950/30 border-r border-slate-800 p-6 overflow-y-auto space-y-6 flex-shrink-0">
+        <section class="w-full lg:w-[380px] bg-slate-950/30 border-r border-slate-800 p-6 overflow-y-auto space-y-6 flex-shrink-0">
             
             <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-3">
                 <div class="flex justify-between items-center">
@@ -107,11 +105,21 @@
                     </span>
                     <span id="panel-projected-net-worth" class="text-base font-mono font-bold text-cyan-400">$0</span>
                 </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[10px] py-1.5 border-t border-slate-800/50">
+                    <div>
+                        <span class="text-slate-400 block">Bridge (Proj. Median):</span>
+                        <span id="panel-proj-bridge-val" class="font-mono text-cyan-200 font-semibold">$0</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">Core (Proj. Median):</span>
+                        <span id="panel-proj-core-val" class="font-mono text-cyan-200 font-semibold">$0</span>
+                    </div>
+                </div>
             </div>
 
             <div class="space-y-4">
-                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">Timeline & Strategy</h2>
-                
+                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Age Parameters</h2>
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="text-sm font-medium text-slate-300">Your Current Age</label>
@@ -129,31 +137,8 @@
                         <button onclick="setRetirementAge(62)" id="btn-age-62" class="py-2 text-xs rounded-lg transition-all">62</button>
                         <button onclick="setRetirementAge(67)" id="btn-age-67" class="py-2 text-xs rounded-lg transition-all">67</button>
                     </div>
+                    <p class="text-[11px] text-slate-400 mt-2" id="timeline-explainer">Currently age 37. Simulating until age 90.</p>
                 </div>
-
-                <div class="pt-3 flex items-center justify-between">
-                    <label class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer">
-                        <span class="material-icons text-sm text-cyan-400">account_balance</span>
-                        Corporate 55/15 Exemption
-                    </label>
-                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                        <input type="checkbox" id="toggle-5515" onchange="toggle5515(this.checked)" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-slate-700 appearance-none cursor-pointer"/>
-                        <label for="toggle-5515" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-700 cursor-pointer"></label>
-                    </div>
-                </div>
-                <p class="text-[10px] text-slate-500 leading-tight">If active & retiring at age 55+, waives the 10% IRS penalty on Core withdrawals prior to age 59.5.</p>
-
-                <div class="pt-2 flex items-center justify-between border-t border-slate-800/60 mt-3">
-                    <label class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer mt-3">
-                        <span class="material-icons text-sm text-amber-400">trending_down</span>
-                        Dynamic Spending Curve
-                    </label>
-                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in mt-3">
-                        <input type="checkbox" id="toggle-dynamic-spend" onchange="toggleDynamicSpend(this.checked)" checked class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-slate-700 appearance-none cursor-pointer"/>
-                        <label for="toggle-dynamic-spend" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-700 cursor-pointer"></label>
-                    </div>
-                </div>
-                <p class="text-[10px] text-slate-500 leading-tight">Go-Go (100% until 60), Slow-Go (80% until 74), No-Go (90% age 75+).</p>
             </div>
 
             <div class="border-t border-slate-800/60 pt-5 space-y-5">
@@ -161,6 +146,7 @@
                     <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Active Savings Plan</h2>
                     <span id="label-total-savings" class="text-xs font-mono font-bold text-emerald-400">Total: $0/yr</span>
                 </div>
+
                 <div>
                     <div class="flex justify-between items-center mb-0.5">
                         <label class="text-xs text-slate-300">Taxable Brokerage (Bridge)</label>
@@ -168,6 +154,7 @@
                     </div>
                     <input type="range" id="input-savings-taxable" min="0" max="120000" step="2500" value="0" oninput="updateSavingsTaxable(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
+
                 <div>
                     <div class="flex justify-between items-center mb-0.5">
                         <label class="text-xs text-slate-300">401(k) (Core)</label>
@@ -175,6 +162,7 @@
                     </div>
                     <input type="range" id="input-savings-401k" min="0" max="72000" step="1000" value="0" oninput="updateSavings401k(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
                 </div>
+
                 <div>
                     <div class="flex justify-between items-center mb-0.5">
                         <label class="text-xs text-slate-300">Roth IRA / Backdoor (Core)</label>
@@ -182,17 +170,57 @@
                     </div>
                     <input type="range" id="input-savings-roth" min="0" max="7500" step="500" value="0" oninput="updateSavingsRoth(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
                 </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-0.5">
+                        <label class="text-xs text-slate-300">Health Savings Account (Core)</label>
+                        <span id="label-savings-hsa" class="text-xs font-mono font-bold text-emerald-400">$0/yr</span>
+                    </div>
+                    <input type="range" id="input-savings-hsa" min="0" max="8750" step="50" value="0" oninput="updateSavingsHSA(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    <div class="flex gap-1.5 mt-1.5">
+                        <button onclick="snapHSALimit(4400)" class="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 px-2 py-0.5 rounded">Snap Single ($4.4k)</button>
+                        <button onclick="snapHSALimit(8750)" class="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 px-2 py-0.5 rounded">Snap Family ($8.75k)</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-800/60 pt-5 space-y-5">
+                <h2 class="text-xs font-bold text-amber-400 tracking-wider uppercase mb-1">Real-World Adjustments</h2>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Pre-65 Health Insurance</label>
+                        <span id="label-health" class="text-sm font-mono font-bold text-amber-400">$10,000/yr</span>
+                    </div>
+                    <input type="range" id="input-health" min="0" max="25000" step="1000" value="10000" oninput="updateHealth(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Social Security (Monthly)</label>
+                        <span id="label-ss" class="text-sm font-mono font-bold text-emerald-400">$2,500/mo</span>
+                    </div>
+                    <input type="range" id="input-ss" min="0" max="4500" step="100" value="2500" oninput="updateSS(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">LTC Insurance Buffer</label>
+                        <span id="label-ltc" class="text-sm font-mono font-bold text-amber-400">$3,000/yr</span>
+                    </div>
+                    <input type="range" id="input-ltc" min="0" max="10000" step="500" value="3000" oninput="updateLTC(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                </div>
             </div>
 
             <div class="border-t border-slate-800/60 pt-5 space-y-5">
                 <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">Financial Parameters</h2>
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="text-sm font-medium text-slate-300">Comfortable Spend (Go-Go)</label>
+                        <label class="text-sm font-medium text-slate-300">Comfortable Spend</label>
                         <span id="label-spending" class="text-sm font-mono font-bold text-emerald-400">$90,000</span>
                     </div>
                     <input type="range" id="input-spending" min="50000" max="150000" step="5000" value="90000" oninput="updateSpending(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
+
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="text-sm font-medium text-slate-300">Starting Taxable Bridge</label>
@@ -200,6 +228,7 @@
                     </div>
                     <input type="range" id="input-bridge" min="0" max="2000000" step="25000" value="0" oninput="updateBridge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
+
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="text-sm font-medium text-slate-300">Starting Core Portfolio</label>
@@ -207,6 +236,7 @@
                     </div>
                     <input type="range" id="input-core" min="0" max="2000000" step="25000" value="0" oninput="updateCore(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
+
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="text-sm font-medium text-slate-300">Starting Cash Reserves</label>
@@ -217,59 +247,29 @@
             </div>
 
             <div class="border-t border-slate-800/60 pt-5 space-y-5">
-                <h2 class="text-xs font-bold text-emerald-400 tracking-wider uppercase mb-1">Decoupled Market Assumptions</h2>
-                
-                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
-                    <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-3">Bridge (Aggressive Strategy)</h3>
-                    <div class="mb-3">
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-xs font-medium text-slate-300">Average Return</label>
-                            <span id="label-return-bridge" class="text-xs font-mono font-bold text-emerald-400">9.5%</span>
-                        </div>
-                        <input type="range" id="input-return-bridge" min="4" max="15" step="0.5" value="9.5" oninput="updateReturnBridge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">Market Assumptions</h2>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Average Annual Return</label>
+                        <span id="label-return" class="text-sm font-mono font-bold text-cyan-400">7.5%</span>
                     </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-xs font-medium text-slate-300">Volatility (Std Dev)</label>
-                            <span id="label-vol-bridge" class="text-xs font-mono font-bold text-emerald-400">18.0%</span>
-                        </div>
-                        <input type="range" id="input-vol-bridge" min="5" max="30" step="1.0" value="18.0" oninput="updateVolBridge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
-                    </div>
+                    <input type="range" id="input-return" min="4" max="12" step="0.5" value="7.5" oninput="updateReturn(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
                 </div>
 
-                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
-                    <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-3">Core (Broad Market Index)</h3>
-                    <div class="mb-3">
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-xs font-medium text-slate-300">Average Return</label>
-                            <span id="label-return-core" class="text-xs font-mono font-bold text-cyan-400">7.5%</span>
-                        </div>
-                        <input type="range" id="input-return-core" min="4" max="12" step="0.5" value="7.5" oninput="updateReturnCore(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Market Volatility (Std Dev)</label>
+                        <span id="label-volatility" class="text-sm font-mono font-bold text-cyan-400">12.0%</span>
                     </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-xs font-medium text-slate-300">Volatility (Std Dev)</label>
-                            <span id="label-vol-core" class="text-xs font-mono font-bold text-cyan-400">12.0%</span>
-                        </div>
-                        <input type="range" id="input-vol-core" min="5" max="25" step="1.0" value="12.0" oninput="updateVolCore(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
-                    </div>
+                    <input type="range" id="input-volatility" min="5" max="25" step="1.0" value="12.0" oninput="updateVolatility(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
                 </div>
 
-                <div class="space-y-4">
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-sm font-medium text-slate-300">Cash/SPAXX Yield Rate</label>
-                            <span id="label-cash-yield" class="text-sm font-mono font-bold text-purple-400">3.29%</span>
-                        </div>
-                        <input type="range" id="input-cash-yield" min="0" max="7" step="0.01" value="3.29" oninput="updateCashYield(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Annual Inflation Rate</label>
+                        <span id="label-inflation" class="text-sm font-mono font-bold text-red-400">2.5%</span>
                     </div>
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-sm font-medium text-slate-300">Annual Inflation Rate</label>
-                            <span id="label-inflation" class="text-sm font-mono font-bold text-red-400">2.5%</span>
-                        </div>
-                        <input type="range" id="input-inflation" min="0" max="6" step="0.5" value="2.5" oninput="updateInflation(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
-                    </div>
+                    <input type="range" id="input-inflation" min="0" max="6" step="0.5" value="2.5" oninput="updateInflation(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
                 </div>
             </div>
         </section>
@@ -277,9 +277,9 @@
         <section class="flex-1 p-6 overflow-y-auto space-y-6 flex flex-col">
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-lg">
+                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
                     <div>
-                        <p class="text-[10px] font-semibold text-slate-400 tracking-wider uppercase">Retirement Survival</p>
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Retirement Survival</p>
                         <div class="flex items-baseline gap-1 mt-1">
                             <h3 id="stat-success-rate" class="text-3xl font-extrabold tracking-tight text-emerald-400">100%</h3>
                             <span id="processing-indicator" class="text-xs text-amber-400 font-semibold animate-pulse hidden">(Syncing...)</span>
@@ -289,27 +289,27 @@
                     <span class="p-3 bg-emerald-500/10 rounded-xl text-emerald-400"><span class="material-icons">workspace_premium</span></span>
                 </div>
 
-                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-lg">
+                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
                     <div>
-                        <p class="text-[10px] font-semibold text-slate-400 tracking-wider uppercase">Bridge Survival Rate</p>
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Bridge Survival Rate</p>
                         <h3 id="stat-bridge-survival" class="text-3xl font-extrabold tracking-tight text-white mt-1">100%</h3>
-                        <p class="text-[10px] text-slate-500 mt-1">Taxable bridge survives gap years</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Taxable bridge survives to age 60</p>
                     </div>
                     <span class="p-3 bg-blue-500/10 rounded-xl text-blue-400"><span class="material-icons">hourglass_empty</span></span>
                 </div>
 
-                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-lg">
+                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
                     <div>
-                        <p class="text-[10px] font-semibold text-slate-400 tracking-wider uppercase">Median Estate at Age 90</p>
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Median Estate at Age 90</p>
                         <h3 id="stat-median-estate" class="text-3xl font-extrabold tracking-tight text-white mt-1">$0</h3>
                         <p class="text-[10px] text-slate-500 mt-1">Expressed in future dollars</p>
                     </div>
                     <span class="p-3 bg-purple-500/10 rounded-xl text-purple-400"><span class="material-icons">savings</span></span>
                 </div>
 
-                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between shadow-lg">
+                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
                     <div>
-                        <p class="text-[10px] font-semibold text-slate-400 tracking-wider uppercase">Statistical Iterations</p>
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Statistical Iterations</p>
                         <h3 class="text-3xl font-extrabold tracking-tight text-cyan-400 mt-1">10,000</h3>
                         <p class="text-[10px] text-slate-500 mt-1">Confidence Interval Margin: &plusmn;0.9%</p>
                     </div>
@@ -317,7 +317,7 @@
                 </div>
             </div>
 
-            <div class="bg-slate-950/40 border border-slate-800 rounded-3xl p-6 flex-1 flex flex-col shadow-xl">
+            <div class="bg-slate-950/40 border border-slate-800 rounded-3xl p-6 flex-1 flex flex-col">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-800/80 pb-4">
                     <div class="flex gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 font-medium">
                         <button onclick="switchChartTab('combined')" id="tab-combined" class="px-4 py-2 text-xs rounded-lg transition-all bg-slate-800 text-white">Combined Net Worth</button>
@@ -344,7 +344,7 @@
     </main>
 
     <script>
-        // Web Worker Execution Engine Script Block
+        // Web Worker Execution Engine Script Block (Tax-Engine Enabled)
         const workerCode = `
             self.onmessage = function(e) {
                 const d = e.data;
@@ -367,27 +367,29 @@
                     return (Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2)) * std + mean;
                 }
 
-                function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, age) {
-                    // Inflation index the brackets
-                    let inflMult = Math.pow(1 + d.inflationRate, age - d.startAge);
-                    let standardDeduction = 16100 * inflMult;
+                // 2026 Progressive Tax Calculator
+                function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest) {
+                    const standardDeduction = 16100;
                     
+                    // 2026 Ordinary Income Brackets (Single Filer)
                     const ordBrackets = [
-                        { limit: 12400 * inflMult, rate: 0.10 },
-                        { limit: 50400 * inflMult, rate: 0.12 },
-                        { limit: 105700 * inflMult, rate: 0.22 },
-                        { limit: 201775 * inflMult, rate: 0.24 },
-                        { limit: 256225 * inflMult, rate: 0.32 },
-                        { limit: 640600 * inflMult, rate: 0.35 },
+                        { limit: 12400, rate: 0.10 },
+                        { limit: 50400, rate: 0.12 },
+                        { limit: 105700, rate: 0.22 },
+                        { limit: 201775, rate: 0.24 },
+                        { limit: 256225, rate: 0.32 },
+                        { limit: 640600, rate: 0.35 },
                         { limit: Infinity, rate: 0.37 }
                     ];
 
+                    // 2026 Long-Term Capital Gains Brackets
                     const ltcgBrackets = [
-                        { limit: 49450 * inflMult, rate: 0.00 },
-                        { limit: 545500 * inflMult, rate: 0.15 },
+                        { limit: 49450, rate: 0.00 },
+                        { limit: 545500, rate: 0.15 },
                         { limit: Infinity, rate: 0.20 }
                     ];
 
+                    // Step 1: Ordinary Income includes Pre-Tax + Cash Interest
                     let grossOrdinary = preTaxWithdrawn + cashInterest;
                     let taxableOrdinary = Math.max(0, grossOrdinary - standardDeduction);
                     let unusedDeduction = Math.max(0, standardDeduction - grossOrdinary);
@@ -404,6 +406,7 @@
                         }
                     }
 
+                    // Step 2: Long-Term Capital Gains (Stacked)
                     let realizedGains = brokerageWithdrawn * (1.0 - costBasisRatio);
                     let taxableLtcg = Math.max(0, realizedGains - unusedDeduction);
 
@@ -444,31 +447,26 @@
                     let shouldTrackPlotData = (i < 100);
                     let pathInsolvent = false;
                     
+                    const cashYieldRate = 0.035; // Standard liquid yield
+
                     for (let age = d.startAge; age < d.endAge; age++) {
-                        // Decoupled Market Variables
-                        const annualReturnBridge = generateGaussian(d.meanReturnBridge, d.stdDevBridge);
-                        const annualReturnCore = generateGaussian(d.meanReturnCore, d.stdDevCore);
+                        const annualReturn = generateGaussian(d.meanReturn, d.stdDev);
                         
                         if (age < d.retirementAge) {
-                            currentBridge = (currentBridge + d.savingsTaxable) * (1 + annualReturnBridge);
-                            currentCore = (currentCore + d.savings401k + d.savingsRoth) * (1 + annualReturnCore);
-                            currentCash = currentCash * (1 + d.cashYield);
+                            currentBridge = (currentBridge + d.savingsTaxable) * (1 + annualReturn);
+                            currentCore = (currentCore + d.savings401k + d.savingsRoth + d.savingsHSA) * (1 + annualReturn);
+                            currentCash = currentCash * (1 + cashYieldRate);
                         } else {
-                            // Dynamic Spending Curve
-                            let phaseMultiplier = 1.0;
-                            if (d.dynamicSpending) {
-                                if (age >= 60 && age < 75) phaseMultiplier = 0.80; // Slow-Go
-                                else if (age >= 75) phaseMultiplier = 0.90; // No-Go
-                            }
-                            
-                            let netNeed = currentSpending * phaseMultiplier;
+                            let netNeed = currentSpending;
                             if (age < 65) netNeed += d.healthPremium;
                             if (age >= 60) netNeed += d.ltcCost;
                             if (age >= 67) netNeed = Math.max(0, netNeed - (d.socialSecurity * 12));
 
-                            let annualInterest = currentCash * d.cashYield;
+                            // Cash yield compounds and triggers ordinary income parameters
+                            let annualInterest = currentCash * cashYieldRate;
                             currentCash += annualInterest;
 
+                            // Iterative Net-to-Gross Tax Solver
                             let estimatedTax = 0;
                             let grossNeeded = netNeed + estimatedTax;
                             let brokeragePull = 0;
@@ -478,14 +476,19 @@
 
                             for (let iter = 0; iter < 15; iter++) {
                                 let remGross = grossNeeded;
-                                remGross = Math.max(0, remGross - annualInterest);
                                 
+                                // Step 1: Automatic interest income sweeps down spending first
+                                remGross = Math.max(0, remGross - annualInterest);
+
+                                // Step 2: Draw from Taxable Brokerage (Bridge)
                                 brokeragePull = Math.min(remGross, currentBridge);
                                 remGross -= brokeragePull;
 
+                                // Step 3: Draw from liquid Cash Reserves (Tax-free principal pull)
                                 cashPull = Math.min(remGross, currentCash);
                                 remGross -= cashPull;
 
+                                // Step 4: Draw remaining balance from Core Pre-Tax
                                 corePull = Math.min(remGross, currentCore);
                                 remGross -= corePull;
 
@@ -494,16 +497,7 @@
                                     break;
                                 }
 
-                                // 55/15 IRS Penalty Logic
-                                let corePenalty = 0;
-                                if (corePull > 0) {
-                                    let is5515Eligible = (d.rule5515 && d.retirementAge >= 55 && age >= 55);
-                                    if (age < 60 && !is5515Eligible) {
-                                        corePenalty = corePull * 0.10; 
-                                    }
-                                }
-
-                                let actualTax = calculateAnnualTax(corePull, brokeragePull, dynamicBasisRatio, annualInterest, age) + corePenalty;
+                                let actualTax = calculateAnnualTax(corePull, brokeragePull, dynamicBasisRatio, annualInterest);
                                 
                                 if (Math.abs(actualTax - estimatedTax) < 1) {
                                     estimatedTax = actualTax;
@@ -515,16 +509,19 @@
                             }
 
                             if (pathInsolvent) {
-                                currentBridge = 0; currentCore = 0; currentCash = 0;
+                                currentBridge = 0;
+                                currentCore = 0;
+                                currentCash = 0;
                                 break;
                             }
 
+                            // Commit final calculated balance reductions
                             currentBridge -= brokeragePull;
                             currentCash -= cashPull;
                             currentCore -= corePull;
 
-                            currentBridge *= (1 + annualReturnBridge);
-                            currentCore *= (1 + annualReturnCore);
+                            currentBridge *= (1 + annualReturn);
+                            currentCore *= (1 + annualReturn);
                             
                             dynamicBasisRatio = Math.max(0.20, dynamicBasisRatio * 0.99);
                         }
@@ -539,9 +536,10 @@
                             retirementCoreValues.push(currentCore);
                         }
 
-                        if (age === 59 && currentBridge <= 0) bridgeSurvivedTo60 = false;
+                        if (age === 59 && currentBridge <= 0) {
+                            bridgeSurvivedTo60 = false;
+                        }
 
-                        // Inflation applies to the base spending target each year
                         currentSpending *= (1 + d.inflationRate);
 
                         if (shouldTrackPlotData) {
@@ -585,16 +583,18 @@
         };
 
         let startAge = 37, retirementAge = 45, endAge = 90;
-        let savingsTaxable = 0, savings401k = 0, savingsRoth = 0;
+        let savingsTaxable = 0, savings401k = 0, savingsRoth = 0, savingsHSA = 0;
         let spending = 90000, bridgeCapital = 0, coreCapital = 0, cashReserve = 0;
-        let meanReturnBridge = 0.095, stdDevBridge = 0.18, meanReturnCore = 0.075, stdDevCore = 0.12;
-        let cashYield = 0.0329, inflationRate = 0.025;
+        let meanReturn = 0.075, stdDev = 0.12, inflationRate = 0.025;
         let healthPremium = 10000, socialSecurity = 2500, ltcCost = 3000;
-        let rule5515 = false, dynamicSpending = true;
         
         let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null;
         let globalPlotData = { combined: [], bridge: [], core: [] }, lastSimulatedMetrics = {};
-        let simDebounceTimer = null; let ingestedRows = []; 
+        
+        let ingestedRows = []; 
+
+        // Add the debounce timer variable
+        let simDebounceTimer = null;
 
         function initWorker() {
             const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -613,34 +613,194 @@
         function runMonteCarloSimulation() {
             document.getElementById('processing-indicator').classList.remove('hidden');
             syncNetWorthSummaryPanel();
-            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, spending, bridgeCapital, coreCapital, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, healthPremium, socialSecurity, ltcCost, rule5515, dynamicSpending };
+            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
             if (!simWorker) initWorker();
             simWorker.postMessage(simulationConfig);
         }
 
+        // Add the debounce wrapper function
         function triggerDebouncedSimulation() {
+            // Show the UI syncing indicator instantly so it feels responsive
             document.getElementById('processing-indicator').classList.remove('hidden');
             clearTimeout(simDebounceTimer);
-            simDebounceTimer = setTimeout(() => { runMonteCarloSimulation(); }, 300);
+            simDebounceTimer = setTimeout(() => {
+                runMonteCarloSimulation();
+            }, 300); // 300ms delay to protect the browser
         }
 
-        // CSV parsing omitted for brevity but intact in flow
-        function handleCSVUpload(input) { /* Intact CSV Logic */ }
-        function applyIngestedBalances() { /* Intact apply logic */ closeCSVModal(); runMonteCarloSimulation(); }
+        function parseCSVLine(text) {
+            let p = '', r = []; let q = false;
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i], next = text[i+1];
+                if (c === '"') { if (q && next === '"') { p += '"'; i++; } else { q = !q; } }
+                else if (c === ',' && !q) { r.push(p.trim()); p = ''; }
+                else { p += c; }
+            }
+            r.push(p.trim()); return r;
+        }
+
+        function handleCSVUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split(/\r?\n/);
+                ingestedRows = [];
+                
+                let headers = [];
+                let valueIdx = -1, descIdx = -1, accountIdx = -1;
+
+                for (let line of lines) {
+                    if (!line.trim()) continue;
+                    let parsed = parseCSVLine(line);
+                    
+                    if (parsed.some(cell => cell.toLowerCase().includes('current value') || cell.toLowerCase().includes('balance'))) {
+                        headers = parsed.map(h => h.toLowerCase());
+                        valueIdx = headers.findIndex(h => h.includes('current value') || h.includes('balance') || h.includes('value'));
+                        descIdx = headers.findIndex(h => h.includes('description') || h.includes('name') || h.includes('symbol'));
+                        accountIdx = headers.findIndex(h => h.includes('account name') || h.includes('account number'));
+                        continue;
+                    }
+
+                    if (valueIdx !== -1 && parsed[valueIdx]) {
+                        let rawVal = parsed[valueIdx].replace(/[\$,\(\)\s]/g, '');
+                        let numericVal = parseFloat(rawVal);
+                        if (!isNaN(numericVal) && numericVal > 0) {
+                            let label = parsed[descIdx] || parsed[0] || "Unknown Holding";
+                            let accountName = accountIdx !== -1 ? parsed[accountIdx] : "Brokerage Asset";
+                            
+                            if (label.toLowerCase().includes('total') || label.toLowerCase().includes('disclaimer')) continue;
+
+                            let combinedLabelText = `${accountName} ${label}`.toLowerCase();
+                            let initialPoolSelection = 'bridge'; 
+
+                            if (combinedLabelText.includes('ira') || 
+                                combinedLabelText.includes('401k') || 
+                                combinedLabelText.includes('403b') || 
+                                combinedLabelText.includes('hsa') || 
+                                combinedLabelText.includes('roth')) {
+                                initialPoolSelection = 'core';
+                            } else if (combinedLabelText.includes('individual') || 
+                                       combinedLabelText.includes('brokerage')) {
+                                initialPoolSelection = 'bridge';
+                            }
+
+                            ingestedRows.push({
+                                label: `${accountName} - ${label}`,
+                                value: numericVal,
+                                pool: initialPoolSelection
+                            });
+                        }
+                    }
+                }
+
+                if (ingestedRows.length === 0) {
+                    alert("Unable to map asset balance rows. Please verify this is a standardized positions summary file export.");
+                    return;
+                }
+                openCSVModal();
+            };
+            reader.readAsText(file);
+            input.value = ''; 
+        }
+
+        function openCSVModal() {
+            const container = document.getElementById('csv-rows-container');
+            container.innerHTML = '';
+            
+            ingestedRows.forEach((row, idx) => {
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center bg-slate-950/40 border border-slate-800 p-3 rounded-xl gap-4";
+                
+                const bridgeClass = row.pool === 'bridge' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white";
+                const coreClass = row.pool === 'core' ? "bg-cyan-600 text-white shadow" : "text-slate-400 hover:text-white";
+
+                item.innerHTML = `
+                    <div class="truncate max-w-[60%]">
+                        <span class="block text-xs font-semibold text-white truncate" title="${row.label}">${row.label}</span>
+                        <span class="block text-[10px] font-mono text-slate-400 mt-0.5">$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div class="flex gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                        <button onclick="toggleRowPool(${idx}, 'bridge')" id="modal-btn-bridge-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${bridgeClass}">Bridge</button>
+                        <button onclick="toggleRowPool(${idx}, 'core')" id="modal-btn-core-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${coreClass}">Core</button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+            
+            document.getElementById('csv-modal').classList.remove('hidden');
+            recalculateModalTotals();
+        }
+
+        function toggleRowPool(idx, targetPool) {
+            ingestedRows[idx].pool = targetPool;
+            const bBtn = document.getElementById(`modal-btn-bridge-${idx}`);
+            const cBtn = document.getElementById(`modal-btn-core-${idx}`);
+            
+            if (targetPool === 'bridge') {
+                bBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all bg-emerald-600 text-white shadow";
+                cBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all text-slate-400 hover:text-white";
+            } else {
+                bBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all text-slate-400 hover:text-white";
+                cBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all bg-cyan-600 text-white shadow";
+            }
+            recalculateModalTotals();
+        }
+
+        function recalculateModalTotals() {
+            let bTot = 0, cTot = 0;
+            ingestedRows.forEach(r => { if (r.pool === 'bridge') bTot += r.value; else cTot += r.value; });
+            document.getElementById('modal-bridge-total').textContent = `$${Math.round(bTot).toLocaleString()}`;
+            document.getElementById('modal-core-total').textContent = `$${Math.round(cTot).toLocaleString()}`;
+        }
+
+        function applyIngestedBalances() {
+            let finalBridge = 0, finalCore = 0;
+            ingestedRows.forEach(r => { if (r.pool === 'bridge') finalBridge += r.value; else finalCore += r.value; });
+            
+            if (finalBridge > 2000000) document.getElementById('input-bridge').max = Math.ceil(finalBridge * 1.2);
+            if (finalCore > 2000000) document.getElementById('input-core').max = Math.ceil(finalCore * 1.2);
+
+            bridgeCapital = Math.round(finalBridge);
+            coreCapital = Math.round(finalCore);
+            
+            document.getElementById('input-bridge').value = bridgeCapital;
+            document.getElementById('input-core').value = coreCapital;
+            document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
+            document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
+
+            closeCSVModal();
+            showNotification("Brokerage portfolio statement assets imported successfully!");
+            runMonteCarloSimulation();
+        }
+
         function closeCSVModal() { document.getElementById('csv-modal').classList.add('hidden'); }
 
         function updateDOMMetrics(res) {
             document.getElementById('panel-projected-net-worth').textContent = `$${Math.round(res.medianRetNW).toLocaleString()}`;
+            document.getElementById('panel-proj-bridge-val').textContent = `$${Math.round(res.medianRetBridge).toLocaleString()}`;
+            document.getElementById('panel-proj-core-val').textContent = `$${Math.round(res.medianRetCore).toLocaleString()}`;
             const sRate = document.getElementById('stat-success-rate');
             sRate.textContent = `${res.successRate}%`;
             sRate.className = `text-3xl font-extrabold tracking-tight mt-1 ${res.successRate >= 85 ? 'text-emerald-400' : res.successRate >= 60 ? 'text-amber-400' : 'text-red-400'}`;
             document.getElementById('stat-bridge-survival').textContent = `${res.bridgeSurvivalRate}%`;
             document.getElementById('stat-median-estate').textContent = `$${Math.round(res.medianEstate).toLocaleString()}`;
 
+            lastSimulatedMetrics = {
+                successRate: `${res.successRate}%`, bridgeSurvivalRate: `${res.bridgeSurvivalRate}%`,
+                medianEstateAge90: `$${Math.round(res.medianEstate).toLocaleString()}`, projectedNWRetirement: `$${Math.round(res.medianRetNW).toLocaleString()}`,
+                projectedBridgeRetirement: `$${Math.round(res.medianRetBridge).toLocaleString()}`, projectedCoreRetirement: `$${Math.round(res.medianRetCore).toLocaleString()}`
+            };
+
             let insightEl = document.getElementById('insight-text');
-            if (res.successRate >= 85) insightEl.textContent = `Strong Structural Integrity. The 10,000-path matrix (with dynamic spending and decoupled volatility) holds steady at a ${res.successRate}% success rate.`;
-            else if (res.successRate >= 65) insightEl.textContent = `Moderate Boundary Drift. Survival drops to ${res.successRate}%. Consider extending accumulation years or increasing your Bridge allocation to survive Sequence of Returns Risk.`;
-            else insightEl.textContent = `Structural Revision Indicated. The model fails frequently (${res.successRate}% success). The taxable bridge is likely collapsing before age 60 under IRS penalty weight.`;
+            if (res.successRate >= 85) {
+                insightEl.textContent = `High Confidence Baseline. Across 10,000 asynchronous sequence permutations incorporating progressive tax models, your configuration reflects structural stability (${res.successRate}%).`;
+            } else if (res.successRate >= 65) {
+                insightEl.textContent = `Moderate Boundary Drift. The 10,000 path matrix signals a lifecycle longevity rate of ${res.successRate}%. Tax leakage shifts late-game stress onto core accounts earlier than un-taxed models predict.`;
+            } else {
+                insightEl.textContent = `Structural Revision Indicated. High-resolution pathing signals an unacceptable success rate (${res.successRate}%). Net-to-gross compounding liabilities deplete the taxable bridge rapidly.`;
+            }
         }
 
         function renderChartData() {
@@ -655,7 +815,16 @@
             let borderColor = activeTab === 'combined' ? 'rgba(16, 185, 129, 0.2)' : activeTab === 'bridge' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(147, 51, 234, 0.2)';
             let accentColor = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : '#9333ea';
 
-            const chartDatasets = selectedPaths.map((path, idx) => ({ label: idx === 0 ? datasetLabel : '', data: path, borderColor: borderColor, borderWidth: 1.0, pointRadius: 0, fill: false, tension: 0.1 }));
+            const chartDatasets = selectedPaths.map((path, idx) => ({
+                label: idx === 0 ? datasetLabel : '',
+                data: path,
+                borderColor: borderColor,
+                borderWidth: 1.0,
+                pointRadius: 0,
+                fill: false,
+                tension: 0.1
+            }));
+
             const sortedIdx = selectedPaths.map((p, i) => ({ index: i, val: p[p.length - 1] })).sort((a,b) => a.val - b.val);
             const medIdx = sortedIdx[Math.floor(sortedIdx.length / 2)].index;
             chartDatasets[medIdx].borderColor = accentColor;
@@ -663,11 +832,19 @@
             chartDatasets[medIdx].label = 'Median Cluster Baseline';
 
             if (chartInstance) chartInstance.destroy();
+
             chartInstance = new Chart(ctx, {
-                type: 'line', data: { labels: timeline, datasets: chartDatasets },
+                type: 'line',
+                data: { labels: timeline, datasets: chartDatasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: true, labels: { filter: (item) => item.text === 'Median Cluster Baseline' || item.text === datasetLabel, color: '#94a3b8', font: { family: 'Inter', size: 11 } } } },
+                    plugins: {
+                        legend: { display: true, labels: { filter: (item) => item.text === 'Median Cluster Baseline' || item.text === datasetLabel, color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
+                        tooltip: {
+                            mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
+                            callbacks: { label: (context) => context.dataset.borderWidth > 2 || context.datasetIndex === 0 ? `${context.dataset.label || 'Path'}: $${Math.round(context.raw).toLocaleString()}` : null }
+                        }
+                    },
                     scales: {
                         x: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
                         y: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'M' : val >= 1000 ? '$' + (val / 1000).toFixed(0) + 'k' : '$' + val } }
@@ -676,51 +853,102 @@
             });
         }
 
+        function showNotification(msg) {
+            const toast = document.getElementById('toast-notification');
+            document.getElementById('toast-message').textContent = msg;
+            toast.classList.remove('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
+            }, 3000);
+        }
+
+        function exportSummaryData() {
+            const totalAnnualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA;
+            const textSummary = `==================================================
+RETIREMENT TIMELINE & 10,000 PATH MONTE CARLO SUMMARY
+==================================================
+* Current Age:                  ${startAge} Years Old
+* Target Milestone Age:         ${retirementAge} Years Old
+* Model Parameters:             ${(meanReturn*100).toFixed(1)}% Return / ${(stdDev*100).toFixed(1)}% Volatility
+
+ASSET DEPLOYMENT POSITIONING
+--------------------------------------------------
+* Current Net Worth Baseline:   $${(bridgeCapital+coreCapital+cashReserve).toLocaleString()}
+  - Bridge (Taxable Pool):      $${bridgeCapital.toLocaleString()}
+  - Core (Tax-Advantaged Pool): $${coreCapital.toLocaleString()}
+  - Cash Reserves Buffer:       $${cashReserve.toLocaleString()}
+
+SAVINGS INJECTION VELOCITY
+--------------------------------------------------
+* Total Annual Contributions:   $${totalAnnualSavings.toLocaleString()}/yr
+  - Taxable Brokerage:          $${savingsTaxable.toLocaleString()}/yr
+  - Core Accounts (401k/IRA/HSA):$${(savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr
+
+HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
+--------------------------------------------------
+* Lifetime Survival Rate (90):  ${lastSimulatedMetrics.successRate || '100%'}
+* Bridge Survival Rate (60):    ${lastSimulatedMetrics.bridgeSurvivalRate || '100%'}
+* Median Estate Pool (Age 90):  ${lastSimulatedMetrics.medianEstateAge90 || '$0'}
+
+MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
+--------------------------------------------------
+* Combined Total Net Worth:     ${lastSimulatedMetrics.projectedNWRetirement || '$0'}
+  - Projected Taxable Bridge:   ${lastSimulatedMetrics.projectedBridgeRetirement || '$0'}
+  - Projected Core Portfolio:  ${lastSimulatedMetrics.projectedCoreRetirement || '$0'}
+==================================================`;
+
+            try { navigator.clipboard.writeText(textSummary); showNotification("Profile summary data copied to clipboard!"); } catch(e){}
+            const w = window.open('', '_blank');
+            if (w) {
+                w.document.write(`<html><head><title>10k Simulation Export Summary</title><style>body{font-family:'Courier New',monospace;padding:40px;background:#f8fafc;color:#0f172a;}.card{max-width:700px;margin:0 auto;background:white;padding:30px;border:1px solid #cbd5e1;border-radius:6px;white-space:pre-wrap;}button{font-family:sans-serif;padding:8px 14px;font-weight:600;border-radius:4px;cursor:pointer;border:1px solid #0284c7;background:#0284c7;color:white;margin-bottom:20px;}@print{.no-p{display:none;}}</style></head><body><div class="no-p"><button onclick="window.print()">Print / Export PDF</button></div><div class="card">${textSummary}</div></body></html>`);
+                w.document.close();
+            }
+        }
+
         function saveCurrentAsBaseline() {
-            const state = { startAge, retirementAge, savingsTaxable, savings401k, savingsRoth, spending, bridgeCapital, coreCapital, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, healthPremium, socialSecurity, ltcCost, rule5515, dynamicSpending };
+            const state = { startAge, retirementAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
             savedBaseline = state; safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
-            updateBaselineButtons();
+            showNotification("Your structural configuration baseline is locked!"); updateBaselineButtons();
         }
 
         function loadUserBaseline() {
             let state = savedBaseline || JSON.parse(safeStorage.getItem('retirement_sim_baseline_10k'));
-            if (state) { applyState(state); }
+            if (state) { applyState(state); showNotification("Snapped to custom configuration baseline!"); }
         }
 
         function applyState(s) {
-            startAge = s.startAge; retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; spending = s.spending; bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; cashReserve = s.cashReserve || 0; 
-            meanReturnBridge = s.meanReturnBridge || 0.095; stdDevBridge = s.stdDevBridge || 0.18; meanReturnCore = s.meanReturnCore || 0.075; stdDevCore = s.stdDevCore || 0.12; 
-            cashYield = s.cashYield || 0.0329; inflationRate = s.inflationRate; healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost; rule5515 = s.rule5515; dynamicSpending = s.dynamicSpending;
-            
+            startAge = s.startAge; retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending; bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; cashReserve = s.cashReserve || 0; meanReturn = s.meanReturn; stdDev = s.stdDev; inflationRate = s.inflationRate; healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost;
             document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
-            document.getElementById('input-savings-taxable').value = savingsTaxable; document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; 
-            document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('input-core').value = coreCapital; document.getElementById('input-cash-reserve').value = cashReserve; 
-            document.getElementById('input-return-bridge').value = (meanReturnBridge*100).toFixed(1); document.getElementById('input-vol-bridge').value = (stdDevBridge*100).toFixed(1);
-            document.getElementById('input-return-core').value = (meanReturnCore*100).toFixed(1); document.getElementById('input-vol-core').value = (stdDevCore*100).toFixed(1);
-            document.getElementById('input-cash-yield').value = (cashYield*100).toFixed(2); document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
-            document.getElementById('toggle-5515').checked = rule5515; document.getElementById('toggle-dynamic-spend').checked = dynamicSpending;
-            
+            document.getElementById('input-savings-taxable').value = savingsTaxable; document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('input-savings-hsa').value = savingsHSA;
+            document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('input-core').value = coreCapital;
+            document.getElementById('input-cash-reserve').value = cashReserve; document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
+            document.getElementById('input-return').value = (meanReturn*100).toFixed(1); document.getElementById('input-volatility').value = (stdDev*100).toFixed(1); document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
+            document.getElementById('input-health').value = healthPremium; document.getElementById('input-ss').value = socialSecurity; document.getElementById('input-ltc').value = ltcCost;
             updateLabelElements(); runMonteCarloSimulation();
         }
 
+        // Updated all input functions to use the debounced trigger instead of running immediately
         function updateCurrentAge(v) { startAge = parseInt(v); document.getElementById('label-current-age').textContent = startAge; triggerDebouncedSimulation(); }
         function setRetirementAge(age) { retirementAge = age; [45, 50, 55, 62, 67].forEach(b => { document.getElementById(`btn-age-${b}`).className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"; }); triggerDebouncedSimulation(); }
-        function toggle5515(v) { rule5515 = v; triggerDebouncedSimulation(); }
-        function toggleDynamicSpend(v) { dynamicSpending = v; triggerDebouncedSimulation(); }
         function updateSavingsTaxable(v) { savingsTaxable = parseInt(v); document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`; updateLabelElements(); triggerDebouncedSimulation(); }
         function updateSavings401k(v) { savings401k = parseInt(v); document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`; updateLabelElements(); triggerDebouncedSimulation(); }
         function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); triggerDebouncedSimulation(); }
+        function updateSavingsHSA(v) { savingsHSA = parseInt(v); document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`; updateLabelElements(); triggerDebouncedSimulation(); }
+        function snapHSALimit(v) { document.getElementById('input-savings-hsa').value = v; updateSavingsHSA(v); }
+        function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; triggerDebouncedSimulation(); }
+        function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; triggerDebouncedSimulation(); }
+        function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; triggerDebouncedSimulation(); }
         function updateSpending(v) { spending = parseInt(v); document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`; triggerDebouncedSimulation(); }
         function updateBridge(v) { bridgeCapital = parseInt(v); document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`; triggerDebouncedSimulation(); }
         function updateCore(v) { coreCapital = parseInt(v); document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`; triggerDebouncedSimulation(); }
         function updateCashReserve(v) { cashReserve = parseInt(v); document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`; triggerDebouncedSimulation(); }
-        function updateReturnBridge(v) { meanReturnBridge = parseFloat(v)/100; document.getElementById('label-return-bridge').textContent = `${v}%`; triggerDebouncedSimulation(); }
-        function updateVolBridge(v) { stdDevBridge = parseFloat(v)/100; document.getElementById('label-vol-bridge').textContent = `${v}%`; triggerDebouncedSimulation(); }
-        function updateReturnCore(v) { meanReturnCore = parseFloat(v)/100; document.getElementById('label-return-core').textContent = `${v}%`; triggerDebouncedSimulation(); }
-        function updateVolCore(v) { stdDevCore = parseFloat(v)/100; document.getElementById('label-vol-core').textContent = `${v}%`; triggerDebouncedSimulation(); }
-        function updateCashYield(v) { cashYield = parseFloat(v)/100; document.getElementById('label-cash-yield').textContent = `${v}%`; triggerDebouncedSimulation(); }
+        function updateReturn(v) { meanReturn = parseFloat(v)/100; document.getElementById('label-return').textContent = `${v}%`; triggerDebouncedSimulation(); }
+        function updateVolatility(v) { stdDev = parseFloat(v)/100; document.getElementById('label-volatility').textContent = `${v}%`; triggerDebouncedSimulation(); }
         function updateInflation(v) { inflationRate = parseFloat(v)/100; document.getElementById('label-inflation').textContent = `${v}%`; triggerDebouncedSimulation(); }
-        function updateLabelElements() { document.getElementById('label-total-savings').textContent = `Total: $${(savingsTaxable+savings401k+savingsRoth).toLocaleString()}/yr`; }
+        
+        function updateLabelElements() { document.getElementById('label-total-savings').textContent = `Total: $${(savingsTaxable+savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr`; }
         function syncNetWorthSummaryPanel() { document.getElementById('panel-net-worth').textContent = `$${(cashReserve+bridgeCapital+coreCapital).toLocaleString()}`; document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`; document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`; document.getElementById('panel-ret-age-label').textContent = retirementAge; }
         function switchChartTab(t) { activeTab = t; ['combined','bridge','core'].forEach(tab => { document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white"; }); renderChartData(); }
         function updateBaselineButtons() { let exist = !!savedBaseline || !!safeStorage.getItem('retirement_sim_baseline_10k'); const btn = document.getElementById('btn-reset-baseline'); if (exist) { btn.disabled = false; btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 active:scale-95"; } else { btn.disabled = true; btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg border border-emerald-500/20 opacity-40 cursor-not-allowed"; } }
@@ -730,7 +958,7 @@
             setRetirementAge(45);
             updateBaselineButtons();
             updateLabelElements();
-            runMonteCarloSimulation();
+            runMonteCarloSimulation(); // Keep the initial load instant
         };
     </script>
 </body>
