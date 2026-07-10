@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retirement Bridge & Core Lifetime Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for control panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(15, 23, 42, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(15, 23, 42, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <div id="toast-notification" class="fixed top-4 right-4 z-50 bg-slate-950 border border-emerald-500/30 text-emerald-400 px-4 py-2.5 rounded-xl shadow-2xl shadow-emerald-950/20 text-xs font-semibold flex items-center gap-2 transition-all duration-300 transform translate-y-[-20px] opacity-0 pointer-events-none">
+        <span class="material-icons text-sm text-emerald-400 animate-pulse">check_circle</span>
+        <span id="toast-message">Baseline saved successfully!</span>
+    </div>
+
+    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur-md px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="material-icons text-emerald-400">stacked_line_chart</span>
+                <h1 class="text-xl font-bold tracking-tight text-white">Dynamic Real-World Lifetime Monte Carlo Simulator</h1>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Stress-testing assets with Custom Ages, Health, LTC, and Social Security</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="exportSummaryData()" class="flex items-center gap-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white px-3.5 py-2 rounded-lg transition-all border border-cyan-500/20 active:scale-95 font-semibold shadow-md shadow-cyan-950/20" title="Export a clean text/PDF breakdown to share with friends">
+                <span class="material-icons text-sm">share</span> Export Summary Breakdown
+            </button>
+            <button onclick="saveCurrentAsBaseline()" class="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-lg transition-all border border-slate-700 active:scale-95" title="Lock your current inputs as your custom baseline">
+                <span class="material-icons text-sm text-amber-400">save</span> Save My Baseline
+            </button>
+            <button onclick="loadUserBaseline()" id="btn-reset-baseline" class="flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 opacity-40 cursor-not-allowed" disabled>
+                <span class="material-icons text-sm">settings_backup_restore</span> Snap to My Baseline
+            </button>
+            <button onclick="loadDemoData()" class="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 px-2 py-1.5 transition-all" title="Load sample portfolio assets">
+                Load Demo Data
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        
+        <section class="w-full lg:w-[380px] bg-slate-950/30 border-r border-slate-800 p-6 overflow-y-auto space-y-6 flex-shrink-0">
+            
+            <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1">
+                        <span class="material-icons text-xs text-emerald-400">account_balance_wallet</span> Current Net Worth
+                    </span>
+                    <span id="panel-net-worth" class="text-base font-mono font-bold text-emerald-400">$0</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2 text-[10px] py-1.5 border-t border-slate-800/50">
+                    <div>
+                        <span class="text-slate-400 block">Bridge Asset:</span>
+                        <span id="panel-bridge-val" class="font-mono text-slate-200 font-semibold">$0</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">Core Asset:</span>
+                        <span id="panel-core-val" class="font-mono text-slate-200 font-semibold">$0</span>
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
+                    <span class="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1">
+                        <span class="material-icons text-xs text-cyan-400">event_upcoming</span> NW at Ret. (Age <span id="panel-ret-age-label">45</span>)
+                    </span>
+                    <span id="panel-projected-net-worth" class="text-base font-mono font-bold text-cyan-400" title="Median simulated combined value right before distributions begin">$0</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[10px] py-1.5 border-t border-slate-800/50">
+                    <div>
+                        <span class="text-slate-400 block">Bridge (Proj.):</span>
+                        <span id="panel-proj-bridge-val" class="font-mono text-cyan-200 font-semibold">$0</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">Core (Proj.):</span>
+                        <span id="panel-proj-core-val" class="font-mono text-cyan-200 font-semibold">$0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Age Parameters</h2>
+                
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Your Current Age</label>
+                        <span id="label-current-age" class="text-sm font-mono font-bold text-emerald-400">37</span>
+                    </div>
+                    <input type="range" id="input-current-age" min="25" max="65" step="1" value="37" oninput="updateCurrentAge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>Age 25</span>
+                        <span>Adjusts timeline base</span>
+                        <span>Age 65</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-sm font-medium text-slate-300 block mb-2">Retirement Target Age</label>
+                    <div class="grid grid-cols-5 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-center font-semibold">
+                        <button onclick="setRetirementAge(45)" id="btn-age-45" class="py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-800">45</button>
+                        <button onclick="setRetirementAge(50)" id="btn-age-50" class="py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-800">50</button>
+                        <button onclick="setRetirementAge(55)" id="btn-age-55" class="py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-800">55</button>
+                        <button onclick="setRetirementAge(62)" id="btn-age-62" class="py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-800">62</button>
+                        <button onclick="setRetirementAge(67)" id="btn-age-67" class="py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-800">67</button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-2" id="timeline-explainer">Currently age 37. Simulating until age 90.</p>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-800/60 pt-5 space-y-5">
+                <div class="flex justify-between items-center mb-1">
+                    <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Active Savings Plan</h2>
+                    <span id="label-total-savings" class="text-xs font-mono font-bold text-emerald-400">Total: $0/yr</span>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-0.5">
+                        <label class="text-xs text-slate-300">Taxable Brokerage (Bridge)</label>
+                        <span id="label-savings-taxable" class="text-xs font-mono font-bold text-emerald-400">$0/yr</span>
+                    </div>
+                    <input type="range" id="input-savings-taxable" min="0" max="120000" step="2500" value="0" oninput="updateSavingsTaxable(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-0.5">
+                        <label class="text-xs text-slate-300">401(k) (Core)</label>
+                        <span id="label-savings-401k" class="text-xs font-mono font-bold text-cyan-400">$0/yr</span>
+                    </div>
+                    <input type="range" id="input-savings-401k" min="0" max="72000" step="1000" value="0" oninput="updateSavings401k(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    <p class="text-[9px] text-slate-500">Up to $24.5k standard (or $72k via Mega-Backdoor)</p>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-0.5">
+                        <label class="text-xs text-slate-300">Roth IRA / Backdoor (Core)</label>
+                        <span id="label-savings-roth" class="text-xs font-mono font-bold text-purple-400">$0/yr</span>
+                    </div>
+                    <input type="range" id="input-savings-roth" min="0" max="7500" step="500" value="0" oninput="updateSavingsRoth(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                    <p class="text-[9px] text-slate-500">Max: $7,500/yr (individual limit for 2026)</p>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-0.5">
+                        <label class="text-xs text-slate-300">Health Savings Account (Core)</label>
+                        <span id="label-savings-hsa" class="text-xs font-mono font-bold text-emerald-400">$0/yr</span>
+                    </div>
+                    <input type="range" id="input-savings-hsa" min="0" max="8750" step="50" value="0" oninput="updateSavingsHSA(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    
+                    <div class="flex gap-1.5 mt-1.5">
+                        <button onclick="snapHSALimit(4400)" class="text-[10px] bg-slate-900 hover:bg-slate-800 border border-slate-800/80 text-slate-400 hover:text-emerald-400 px-2 py-0.5 rounded transition-all">
+                            Snap Single ($4.4k)
+                        </button>
+                        <button onclick="snapHSALimit(8750)" class="text-[10px] bg-slate-900 hover:bg-slate-800 border border-slate-800/80 text-slate-400 hover:text-emerald-400 px-2 py-0.5 rounded transition-all">
+                            Snap Family ($8.75k)
+                        </button>
+                    </div>
+                    <p class="text-[9px] text-slate-500 mt-1">Max: $4,400 single / $8,750 family (Official 2026 statutory limits)</p>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-800/60 pt-5 space-y-5">
+                <h2 class="text-xs font-bold text-amber-400 tracking-wider uppercase mb-1">Real-World Adjustments</h2>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Pre-65 Health Insurance</label>
+                        <span id="label-health" class="text-sm font-mono font-bold text-amber-400">$10,000/yr</span>
+                    </div>
+                    <input type="range" id="input-health" min="0" max="25000" step="1000" value="10000" oninput="updateHealth(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>$0 (Subsidized)</span>
+                        <span>Stops at Age 65 (Medicare)</span>
+                        <span>$25k/yr</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Social Security (Monthly)</label>
+                        <span id="label-ss" class="text-sm font-mono font-bold text-emerald-400">$2,500/mo</span>
+                    </div>
+                    <input type="range" id="input-ss" min="0" max="4500" step="100" value="2500" oninput="updateSS(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>$0</span>
+                        <span>Starts at Age 67 (Today's $)</span>
+                        <span>$4.5k/mo</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">LTC Insurance / Late-life Buffer</label>
+                        <span id="label-ltc" class="text-sm font-mono font-bold text-amber-400">$3,000/yr</span>
+                    </div>
+                    <input type="range" id="input-ltc" min="0" max="10000" step="500" value="3000" oninput="updateLTC(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>$0 (Self-insure)</span>
+                        <span>Active from Age 60 to 90</span>
+                        <span>$10k/yr</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-800/60 pt-5 space-y-5">
+                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">Financial Parameters</h2>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Comfortable Spend (Today's Value)</label>
+                        <span id="label-spending" class="text-sm font-mono font-bold text-emerald-400">$90,000</span>
+                    </div>
+                    <input type="range" id="input-spending" min="50000" max="150000" step="5000" value="90000" oninput="updateSpending(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>$50k/yr</span>
+                        <span>Will inflate 2.5% annually</span>
+                        <span>$150k/yr</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Starting Taxable Bridge <span class="text-slate-500 text-[11px] font-normal">(Current Balance)</span></label>
+                        <span id="label-bridge" class="text-sm font-mono font-bold text-emerald-400">$0</span>
+                    </div>
+                    <input type="range" id="input-bridge" min="0" max="2000000" step="25000" value="0" oninput="updateBridge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>$0</span>
+                        <span>Individual holdings balance right now</span>
+                        <span>$2M</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Starting Core Portfolio <span class="text-slate-500 text-[11px] font-normal">(Current Balance)</span></label>
+                        <span id="label-core" class="text-sm font-mono font-bold text-emerald-400">$0</span>
+                    </div>
+                    <input type="range" id="input-core" min="0" max="5000000" step="25000" value="0" oninput="updateCore(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>$0</span>
+                        <span>401k + Roth + HSA right now</span>
+                        <span>$5M</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-800/60 pt-5 space-y-5">
+                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">Market Assumptions</h2>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Average Annual Return</label>
+                        <span id="label-return" class="text-sm font-mono font-bold text-cyan-400">7.5%</span>
+                    </div>
+                    <input type="range" id="input-return" min="4" max="12" step="0.5" value="7.5" oninput="updateReturn(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Market Volatility (Std Dev)</label>
+                        <span id="label-volatility" class="text-sm font-mono font-bold text-cyan-400">12.0%</span>
+                    </div>
+                    <input type="range" id="input-volatility" min="5" max="25" step="1.0" value="12.0" oninput="updateVolatility(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Annual Inflation Rate</label>
+                        <span id="label-inflation" class="text-sm font-mono font-bold text-red-400">2.5%</span>
+                    </div>
+                    <input type="range" id="input-inflation" min="0" max="6" step="0.5" value="2.5" oninput="updateInflation(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+                </div>
+            </div>
+        </section>
+
+        <section class="flex-1 p-6 overflow-y-auto space-y-6 flex flex-col">
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Retirement Survival</p>
+                        <h3 id="stat-success-rate" class="text-3xl font-extrabold tracking-tight text-emerald-400 mt-1">100%</h3>
+                        <p class="text-[10px] text-slate-500 mt-1">Combined assets survive to age 90</p>
+                    </div>
+                    <span class="p-3 bg-emerald-500/10 rounded-xl text-emerald-400">
+                        <span class="material-icons">workspace_premium</span>
+                    </span>
+                </div>
+
+                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Bridge Survival Rate</p>
+                        <h3 id="stat-bridge-survival" class="text-3xl font-extrabold tracking-tight text-white mt-1">100%</h3>
+                        <p id="stat-bridge-desc" class="text-[10px] text-slate-500 mt-1">Taxable bridge survives to age 60</p>
+                    </div>
+                    <span class="p-3 bg-blue-500/10 rounded-xl text-blue-400">
+                        <span class="material-icons">hourglass_empty</span>
+                    </span>
+                </div>
+
+                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Median Estate at Age 90</p>
+                        <h3 id="stat-median-estate" class="text-3xl font-extrabold tracking-tight text-white mt-1">$0</h3>
+                        <p class="text-[10px] text-slate-500 mt-1">Expressed in future dollars</p>
+                    </div>
+                    <span class="p-3 bg-purple-500/10 rounded-xl text-purple-400">
+                        <span class="material-icons">savings</span>
+                    </span>
+                </div>
+
+                <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Tax Basis Benefit</p>
+                        <h3 id="stat-tax-benefit" class="text-3xl font-extrabold tracking-tight text-cyan-400 mt-1">100%</h3>
+                        <p class="text-[10px] text-slate-500 mt-1">Virtual 0% tax drag on Bridge withdrawals</p>
+                    </div>
+                    <span class="p-3 bg-cyan-500/10 rounded-xl text-cyan-400">
+                        <span class="material-icons">shield</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="bg-slate-950/40 border border-slate-800 rounded-3xl p-6 flex-1 flex flex-col">
+                
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-800/80 pb-4">
+                    <div class="flex gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 font-medium">
+                        <button onclick="switchChartTab('combined')" id="tab-combined" class="px-4 py-2 text-xs rounded-lg transition-all bg-slate-800 text-white">
+                            Combined Net Worth (Ages Start to 90)
+                        </button>
+                        <button onclick="switchChartTab('bridge')" id="tab-bridge" class="px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white">
+                            Bridge Account Only
+                        </button>
+                        <button onclick="switchChartTab('core')" id="tab-core" class="px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white">
+                            Core Accounts Only
+                        </button>
+                    </div>
+                    <span class="text-xs text-slate-500 flex items-center gap-1">
+                        <span class="material-icons text-xs">info</span> Showing 100 synchronized lifetime paths
+                    </span>
+                </div>
+
+                <div class="relative flex-1 min-h-[350px] sm:min-h-[400px]">
+                    <canvas id="monteCarloChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-slate-950/20 border border-slate-800/60 p-5 rounded-2xl">
+                <h4 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1 flex items-center gap-1.5">
+                    <span class="material-icons text-sm text-emerald-400">analytics</span> Complete Lifetime Insights
+                </h4>
+                <p id="insight-text" class="text-sm text-slate-300 leading-relaxed mt-2">
+                    Calculating full lifetime paths...
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Safe localStorage abstraction layer to prevent sandbox SecurityErrors
+        const safeStorage = {
+            getItem(key) {
+                try {
+                    return window.localStorage ? window.localStorage.getItem(key) : null;
+                } catch (e) {
+                    console.warn("Storage access restricted. Standard local memory fallback utilized.", e);
+                    return null;
+                }
+            },
+            setItem(key, value) {
+                try {
+                    if (window.localStorage) {
+                        window.localStorage.setItem(key, value);
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn("Unable to write baseline parameters to browser storage.", e);
+                }
+                return false;
+            }
+        };
+
+        // Start configurations - Defaulting baseline values to $0
+        let startAge = 37;
+        let retirementAge = 45;
+        let endAge = 90;
+        
+        // Default allocations to clean slate
+        let savingsTaxable = 0;
+        let savings401k = 0;
+        let savingsRoth = 0;
+        let savingsHSA = 0;
+        
+        let spending = 90000;
+        let bridgeCapital = 0;   
+        let coreCapital = 0;     
+        let meanReturn = 0.075;
+        let stdDev = 0.12;
+        let inflationRate = 0.025;
+
+        // Real World Overlays
+        let healthPremium = 10000; 
+        let socialSecurity = 2500;  
+        let ltcCost = 3000;        
+        
+        let activeTab = 'combined'; 
+        let chartInstance = null;
+        
+        // Memory fallback for user baseline in case of SecurityError restrictions
+        let savedBaseline = null; 
+        
+        // Cache data arrays globally
+        let currentCombinedPaths = [];
+        let currentBridgePaths = [];
+        let currentCorePaths = [];
+        let currentTimeline = [];
+
+        // Global cache holders for dynamic calculated metrics needed for pure data export
+        let lastSimulatedMetrics = {
+            successRate: "100%",
+            bridgeSurvivalRate: "100%",
+            medianEstateAge90: "$0",
+            projectedNWRetirement: "$0",
+            projectedBridgeRetirement: "$0",
+            projectedCoreRetirement: "$0"
+        };
+
+        // Box-Muller transform for volatility paths
+        const generateGaussian = (mean, std) => {
+            const u1 = Math.random();
+            const u2 = Math.random();
+            const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            return z0 * std + mean;
+        };
+
+        // Custom Baseline Utility Functions
+        function showNotification(message) {
+            const toast = document.getElementById('toast-notification');
+            const msgSpan = document.getElementById('toast-message');
+            msgSpan.textContent = message;
+            toast.classList.remove('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
+            }, 3000);
+        }
+
+        // NEW: Shareable Summary Text/Data Export Functionality
+        function exportSummaryData() {
+            const totalAnnualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA;
+            const currentNetWorth = bridgeCapital + coreCapital;
+
+            const summaryText = `==================================================
+RETIREMENT TIMELINE & LIFETIME MONTE CARLO SIMULATION
+==================================================
+
+1. TIMELINE & MODEL ENGINE CONFIGURATION
+--------------------------------------------------
+* Current Age:                  ${startAge} Years Old
+* Targeted Retirement Age:      ${retirementAge} Years Old
+* Active Simulation Window:     Ages ${startAge} to ${endAge}
+* Modeled Market Baseline Cap:  ${(meanReturn * 100).toFixed(1)}% Mean Expected Return
+* Modeled Portfolio Volatility: ${(stdDev * 100).toFixed(1)}% Std Dev
+* Assumed Core Inflation Drag:  ${(inflationRate * 100).toFixed(1)}% Fixed Annual
+
+2. DEPLOYED ASSET PORTFOLIO BASELINES (CURRENT)
+--------------------------------------------------
+* Total Starting Net Worth:     $${currentNetWorth.toLocaleString()}
+  - Taxable Bridge Portfolio:   $${bridgeCapital.toLocaleString()}
+  - Core Retirement Portfolio:  $${coreCapital.toLocaleString()}
+
+3. ACTIVE VELOCITY ACCUMULATION PLAN (ANNUAL)
+--------------------------------------------------
+* Total Annualized Savings:     $${totalAnnualSavings.toLocaleString()}/yr
+  - Taxable Brokerage (Bridge): $${savingsTaxable.toLocaleString()}/yr
+  - 401(k) Allocation (Core):   $${savings401k.toLocaleString()}/yr
+  - Roth IRA Contribution:      $${savingsRoth.toLocaleString()}/yr
+  - Deployed HSA Target:        $${savingsHSA.toLocaleString()}/yr
+
+4. OVERLAY COST ADJUSTMENTS & SUPPLEMENTAL INCOME
+--------------------------------------------------
+* Core Spending Target (Real):  $${spending.toLocaleString()}/yr (Inflates at ${(inflationRate * 100).toFixed(1)}%)
+* Pre-65 Private Healthcare:    $${healthPremium.toLocaleString()}/yr (Ceases at Age 65)
+* Late-Life Long-Term Care:     $${ltcCost.toLocaleString()}/yr (Ages 60 to 90)
+* Social Security Benefit:      $${socialSecurity.toLocaleString()}/mo (Starts at Age 67)
+
+==================================================
+SIMULATED PERFORMANCE OUTCOMES (100 PATH TRACKS)
+==================================================
+* Retirement Success Rate:      ${lastSimulatedMetrics.successRate} Survival to Age 90
+* Bridge Account Survival Rate: ${lastSimulatedMetrics.bridgeSurvivalRate} Stability to Age 60
+* Median Estate Pool At Age 90: ${lastSimulatedMetrics.medianEstateAge90} (Future Dollars)
+
+ESTIMATED MEDIAN NET WORTH AT RETIREMENT AGE (${retirementAge}):
+--------------------------------------------------
+* Projected Combined Balance:   ${lastSimulatedMetrics.projectedNWRetirement}
+  - Projected Taxable Bridge:   ${lastSimulatedMetrics.projectedBridgeRetirement}
+  - Projected Core Portfolio:  ${lastSimulatedMetrics.projectedCoreRetirement}
+
+==================================================
+Generated via Lifetime Monte Carlo Analytics Engine.
+==================================================`;
+
+            // Attempt to write straight to clipboard for quick paste functionality
+            try {
+                navigator.clipboard.writeText(summaryText);
+                showNotification("Copied formatting profile to clipboard!");
+            } catch (err) {
+                console.warn("Direct clipboard storage injection prevented by browser container security policies.");
+            }
+
+            // Open clean browser sandbox window for independent presentation frame layout/printing
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Retirement Simulator Export Summary</title>
+                        <style>
+                            body {
+                                font-family: 'Courier New', Courier, monospace;
+                                background-color: #fafafa;
+                                color: #1e293b;
+                                padding: 40px 24px;
+                                line-height: 1.5;
+                            }
+                            .wrapper {
+                                max-width: 720px;
+                                margin: 0 auto;
+                                background: white;
+                                padding: 32px;
+                                border: 1px solid #e2e8f0;
+                                border-radius: 8px;
+                                box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+                                white-space: pre-wrap;
+                            }
+                            .btn-box {
+                                max-width: 720px;
+                                margin: 0 auto 20px auto;
+                                display: flex;
+                                gap: 10px;
+                            }
+                            button {
+                                font-family: system-ui, -apple-system, sans-serif;
+                                padding: 8px 16px;
+                                font-size: 13px;
+                                font-weight: 600;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                border: 1px solid #cbd5e1;
+                                background: white;
+                            }
+                            button.primary {
+                                background: #0284c7;
+                                color: white;
+                                border: 1px solid #0369a1;
+                            }
+                            @print {
+                                .btn-box { display: none; }
+                                body { background: white; padding: 0; }
+                                .wrapper { border: none; box-shadow: none; padding: 0; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="btn-box">
+                            <button class="primary" onclick="window.print()">Print / Save as PDF</button>
+                            <button onclick="window.close()">Close Document</button>
+                        </div>
+                        <div class="wrapper">${summaryText}</div>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            }
+        }
+
+        function updateBaselineButtons() {
+            const btnReset = document.getElementById('btn-reset-baseline');
+            let baselineExists = !!savedBaseline;
+            if (!baselineExists) {
+                const localData = safeStorage.getItem('retirement_sim_baseline');
+                if (localData) baselineExists = true;
+            }
+
+            if (baselineExists) {
+                btnReset.disabled = false;
+                btnReset.className = "flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 active:scale-95";
+            } else {
+                btnReset.disabled = true;
+                btnReset.className = "flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 opacity-40 cursor-not-allowed";
+            }
+        }
+
+        function checkForSavedBaseline() {
+            const localData = safeStorage.getItem('retirement_sim_baseline');
+            if (localData) {
+                try {
+                    savedBaseline = JSON.parse(localData);
+                } catch(e) {
+                    console.error("Failed to parse local baseline values.", e);
+                }
+            }
+            updateBaselineButtons();
+        }
+
+        function saveCurrentAsBaseline() {
+            const stateObj = {
+                startAge,
+                retirementAge,
+                savingsTaxable,
+                savings401k,
+                savingsRoth,
+                savingsHSA,
+                spending,
+                bridgeCapital,
+                coreCapital,
+                meanReturn,
+                stdDev,
+                inflationRate,
+                healthPremium,
+                socialSecurity,
+                ltcCost
+            };
+            savedBaseline = stateObj;
+            safeStorage.setItem('retirement_sim_baseline', JSON.stringify(stateObj));
+            
+            showNotification("Your custom baseline was saved successfully!");
+            updateBaselineButtons();
+        }
+
+        function loadUserBaseline() {
+            let stateObj = savedBaseline;
+            if (!stateObj) {
+                const localData = safeStorage.getItem('retirement_sim_baseline');
+                if (localData) {
+                    try {
+                        stateObj = JSON.parse(localData);
+                    } catch(e) {}
+                }
+            }
+            if (!stateObj) return;
+
+            applyState(stateObj);
+            showNotification("Snapped back to your custom baseline!");
+        }
+
+        function loadDemoData() {
+            const demoState = {
+                startAge: 37,
+                retirementAge: 45,
+                savingsTaxable: 40000,
+                savings401k: 10000,
+                savingsRoth: 0,
+                savingsHSA: 3000,
+                spending: 90000,
+                bridgeCapital: 525140,
+                coreCapital: 577286,
+                meanReturn: 0.075,
+                stdDev: 0.12,
+                inflationRate: 0.025,
+                healthPremium: 10000,
+                socialSecurity: 2500,
+                ltcCost: 3000
+            };
+            applyState(demoState);
+            showNotification("Demo data loaded successfully!");
+        }
+
+        function applyState(stateObj) {
+            startAge = stateObj.startAge;
+            retirementAge = stateObj.retirementAge;
+            savingsTaxable = stateObj.savingsTaxable;
+            savings401k = stateObj.savings401k;
+            savingsRoth = stateObj.savingsRoth;
+            savingsHSA = stateObj.savingsHSA;
+            spending = stateObj.spending;
+            bridgeCapital = stateObj.bridgeCapital;
+            coreCapital = stateObj.coreCapital;
+            meanReturn = stateObj.meanReturn;
+            stdDev = stateObj.stdDev;
+            inflationRate = stateObj.inflationRate;
+            healthPremium = stateObj.healthPremium;
+            socialSecurity = stateObj.socialSecurity;
+            ltcCost = stateObj.ltcCost;
+
+            // Sync range slider inputs
+            document.getElementById('input-current-age').value = startAge;
+            document.getElementById('label-current-age').textContent = startAge;
+            
+            document.getElementById('input-savings-taxable').value = savingsTaxable;
+            document.getElementById('input-savings-401k').value = savings401k;
+            document.getElementById('input-savings-roth').value = savingsRoth;
+            document.getElementById('input-savings-hsa').value = savingsHSA;
+            
+            document.getElementById('input-spending').value = spending;
+            document.getElementById('input-bridge').value = bridgeCapital;
+            document.getElementById('input-core').value = coreCapital;
+
+            document.getElementById('input-return').value = (meanReturn * 100).toFixed(1);
+            document.getElementById('input-volatility').value = (stdDev * 100).toFixed(1);
+            document.getElementById('input-inflation').value = (inflationRate * 100).toFixed(1);
+
+            document.getElementById('input-health').value = healthPremium;
+            document.getElementById('input-ss').value = socialSecurity;
+            document.getElementById('input-ltc').value = ltcCost;
+
+            updateLabelElements();
+            runMonteCarloSimulation();
+        }
+
+        // Form Control Value Update Bindings
+        function updateCurrentAge(val) {
+            startAge = parseInt(val);
+            document.getElementById('label-current-age').textContent = startAge;
+            document.getElementById('timeline-explainer').textContent = `Currently age ${startAge}. Simulating until age ${endAge}.`;
+            runMonteCarloSimulation();
+        }
+
+        function setRetirementAge(age) {
+            retirementAge = age;
+            const buttons = [45, 50, 55, 62, 67];
+            buttons.forEach(b => {
+                const btn = document.getElementById(`btn-age-${b}`);
+                if (b === age) {
+                    btn.className = "py-2 text-xs rounded-lg transition-all bg-emerald-600 text-white shadow-md shadow-emerald-950/40 border border-emerald-500/20 font-bold";
+                } else {
+                    btn.className = "py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white hover:bg-slate-800";
+                }
+            });
+            runMonteCarloSimulation();
+        }
+
+        function updateSavingsTaxable(val) {
+            savingsTaxable = parseInt(val);
+            document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`;
+            updateLabelElements();
+            runMonteCarloSimulation();
+        }
+
+        function updateSavings401k(val) {
+            savings401k = parseInt(val);
+            document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
+            updateLabelElements();
+            runMonteCarloSimulation();
+        }
+
+        function updateSavingsRoth(val) {
+            savingsRoth = parseInt(val);
+            document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`;
+            updateLabelElements();
+            runMonteCarloSimulation();
+        }
+
+        function updateSavingsHSA(val) {
+            savingsHSA = parseInt(val);
+            document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`;
+            updateLabelElements();
+            runMonteCarloSimulation();
+        }
+
+        function snapHSALimit(value) {
+            document.getElementById('input-savings-hsa').value = value;
+            updateSavingsHSA(value);
+        }
+
+        function updateHealth(val) {
+            healthPremium = parseInt(val);
+            document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`;
+            runMonteCarloSimulation();
+        }
+
+        // Real-world dynamic premium updates mapping directly back to computational modules
+        function updateSS(val) {
+            socialSecurity = parseInt(val);
+            document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`;
+            runMonteCarloSimulation();
+        }
+
+        function updateLTC(val) {
+            ltcCost = parseInt(val);
+            document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`;
+            runMonteCarloSimulation();
+        }
+
+        function updateSpending(val) {
+            spending = parseInt(val);
+            document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`;
+            runMonteCarloSimulation();
+        }
+
+        function updateBridge(val) {
+            bridgeCapital = parseInt(val);
+            document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
+            runMonteCarloSimulation();
+        }
+
+        function updateCore(val) {
+            coreCapital = parseInt(val);
+            document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
+            runMonteCarloSimulation();
+        }
+
+        function updateLabelElements() {
+            const sum = savingsTaxable + savings401k + savingsRoth + savingsHSA;
+            document.getElementById('label-total-savings').textContent = `Total: $${sum.toLocaleString()}/yr`;
+        }
+
+        function syncNetWorthSummaryPanel() {
+            const netWorthSum = bridgeCapital + coreCapital;
+            document.getElementById('panel-net-worth').textContent = `$${netWorthSum.toLocaleString()}`;
+            document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`;
+            document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`;
+            document.getElementById('panel-ret-age-label').textContent = retirementAge;
+        }
+
+        function updateReturn(val) {
+            meanReturn = parseFloat(val) / 100;
+            document.getElementById('label-return').textContent = `${val}%`;
+            runMonteCarloSimulation();
+        }
+
+        function updateVolatility(val) {
+            stdDev = parseFloat(val) / 100;
+            document.getElementById('label-volatility').textContent = `${val}%`;
+            runMonteCarloSimulation();
+        }
+
+        function updateInflation(val) {
+            inflationRate = parseFloat(val) / 100;
+            document.getElementById('label-inflation').textContent = `${val}%`;
+            runMonteCarloSimulation();
+        }
+
+        function switchChartTab(tabName) {
+            activeTab = tabName;
+            const tabs = ['combined', 'bridge', 'core'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (t === tabName) {
+                    el.className = "px-4 py-2 text-xs rounded-lg transition-all bg-slate-800 text-white font-medium";
+                } else {
+                    el.className = "px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white";
+                }
+            });
+            renderChartData();
+        }
+
+        // Engine: Core Simulation Execution Loop
+        function runMonteCarloSimulation() {
+            syncNetWorthSummaryPanel();
+
+            const iterations = 100;
+            currentCombinedPaths = [];
+            currentBridgePaths = [];
+            currentCorePaths = [];
+            currentTimeline = [];
+
+            for (let age = startAge; age <= endAge; age++) {
+                currentTimeline.push(age);
+            }
+
+            let lifetimeSuccessCount = 0;
+            let bridgeSuccessCount = 0;
+            let terminalCombinedValues = [];
+            
+            let retirementCombinedValues = []; 
+            let retirementBridgeValues = [];
+            let retirementCoreValues = [];
+
+            for (let i = 0; i < iterations; i++) {
+                let bridgePath = [];
+                let corePath = [];
+                let combinedPath = [];
+
+                let currentBridge = bridgeCapital;
+                let currentCore = coreCapital;
+                let currentInflatedSpending = spending;
+
+                bridgePath.push(currentBridge);
+                corePath.push(currentCore);
+                combinedPath.push(currentBridge + currentCore);
+
+                let bridgeSurvivedTo60 = true;
+
+                for (let age = startAge; age < endAge; age++) {
+                    const annualReturn = generateGaussian(meanReturn, stdDev);
+                    
+                    if (age < retirementAge) {
+                        currentBridge = (currentBridge + savingsTaxable) * (1 + annualReturn);
+                        currentCore = (currentCore + savings401k + savingsRoth + savingsHSA) * (1 + annualReturn);
+                    } else {
+                        let totalNeed = currentInflatedSpending;
+
+                        if (age < 65) {
+                            totalNeed += healthPremium;
+                        }
+                        if (age >= 60) {
+                            totalNeed += ltcCost;
+                        }
+                        if (age >= 67) {
+                            const annualSS = socialSecurity * 12;
+                            totalNeed = Math.max(0, totalNeed - annualSS);
+                        }
+
+                        if (currentBridge >= totalNeed) {
+                            currentBridge -= totalNeed;
+                            totalNeed = 0;
+                        } else {
+                            totalNeed -= currentBridge;
+                            currentBridge = 0;
+                        }
+
+                        if (totalNeed > 0) {
+                            if (currentCore >= totalNeed) {
+                                currentCore -= totalNeed;
+                                totalNeed = 0;
+                            } else {
+                                currentCore = 0;
+                                totalNeed -= currentCore;
+   ... (12 KB left)
