@@ -84,14 +84,18 @@
                     <span id="panel-net-worth" class="text-base font-mono font-bold text-emerald-400">$0</span>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-2 text-[10px] py-1.5 border-t border-slate-800/50">
+                <div class="grid grid-cols-3 gap-1 text-[9px] py-1.5 border-t border-slate-800/50 text-center">
                     <div>
-                        <span class="text-slate-400 block">Bridge Asset:</span>
-                        <span id="panel-bridge-val" class="font-mono text-slate-200 font-semibold">$0</span>
+                        <span class="text-slate-400 block">Bridge:</span>
+                        <span id="panel-bridge-val" class="font-mono text-slate-200 font-semibold block truncate">$0</span>
                     </div>
                     <div>
-                        <span class="text-slate-400 block">Core Asset:</span>
-                        <span id="panel-core-val" class="font-mono text-slate-200 font-semibold">$0</span>
+                        <span class="text-slate-400 block">Core:</span>
+                        <span id="panel-core-val" class="font-mono text-slate-200 font-semibold block truncate">$0</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">Cash:</span>
+                        <span id="panel-cash-val" class="font-mono text-slate-200 font-semibold block truncate">$0</span>
                     </div>
                 </div>
 
@@ -230,7 +234,15 @@
                         <label class="text-sm font-medium text-slate-300">Starting Core Portfolio</label>
                         <span id="label-core" class="text-sm font-mono font-bold text-emerald-400">$0</span>
                     </div>
-                    <input type="range" id="input-core" min="0" max="5000000" step="25000" value="0" oninput="updateCore(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    <input type="range" id="input-core" min="0" max="2000000" step="25000" value="0" oninput="updateCore(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Starting Cash Reserves</label>
+                        <span id="label-cash-reserve" class="text-sm font-mono font-bold text-emerald-400">$0</span>
+                    </div>
+                    <input type="range" id="input-cash-reserve" min="0" max="1000000" step="10000" value="0" oninput="updateCashReserve(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
             </div>
 
@@ -356,7 +368,7 @@
                 }
 
                 // 2026 Progressive Tax Calculator
-                function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio) {
+                function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest) {
                     const standardDeduction = 16100;
                     
                     // 2026 Ordinary Income Brackets (Single Filer)
@@ -377,9 +389,10 @@
                         { limit: Infinity, rate: 0.20 }
                     ];
 
-                    // Step 1: Ordinary Income
-                    let taxableOrdinary = Math.max(0, preTaxWithdrawn - standardDeduction);
-                    let unusedDeduction = Math.max(0, standardDeduction - preTaxWithdrawn);
+                    // Step 1: Ordinary Income includes Pre-Tax + Cash Interest
+                    let grossOrdinary = preTaxWithdrawn + cashInterest;
+                    let taxableOrdinary = Math.max(0, grossOrdinary - standardDeduction);
+                    let unusedDeduction = Math.max(0, standardDeduction - grossOrdinary);
 
                     let ordinaryTax = 0;
                     let prevLimit = 0;
@@ -421,18 +434,20 @@
                 for (let i = 0; i < iterations; i++) {
                     let currentBridge = d.bridgeCapital;
                     let currentCore = d.coreCapital;
+                    let currentCash = d.cashReserve || 0;
                     let currentSpending = d.spending;
                     
-                    // Assume a conservative dynamic cost basis ratio that improves over time
                     let dynamicBasisRatio = 0.50; 
 
-                    let pathCombined = [currentBridge + currentCore];
+                    let pathCombined = [currentBridge + currentCore + currentCash];
                     let pathBridge = [currentBridge];
                     let pathCore = [currentCore];
                     
                     let bridgeSurvivedTo60 = true;
                     let shouldTrackPlotData = (i < 100);
                     let pathInsolvent = false;
+                    
+                    const cashYieldRate = 0.035; // Standard liquid yield
 
                     for (let age = d.startAge; age < d.endAge; age++) {
                         const annualReturn = generateGaussian(d.meanReturn, d.stdDev);
@@ -440,26 +455,40 @@
                         if (age < d.retirementAge) {
                             currentBridge = (currentBridge + d.savingsTaxable) * (1 + annualReturn);
                             currentCore = (currentCore + d.savings401k + d.savingsRoth + d.savingsHSA) * (1 + annualReturn);
+                            currentCash = currentCash * (1 + cashYieldRate);
                         } else {
-                            // Determine raw living need
                             let netNeed = currentSpending;
                             if (age < 65) netNeed += d.healthPremium;
                             if (age >= 60) netNeed += d.ltcCost;
                             if (age >= 67) netNeed = Math.max(0, netNeed - (d.socialSecurity * 12));
 
+                            // Cash yield compounds and triggers ordinary income parameters
+                            let annualInterest = currentCash * cashYieldRate;
+                            currentCash += annualInterest;
+
                             // Iterative Net-to-Gross Tax Solver
                             let estimatedTax = 0;
                             let grossNeeded = netNeed + estimatedTax;
                             let brokeragePull = 0;
+                            let cashPull = 0;
                             let corePull = 0;
                             let converged = false;
 
                             for (let iter = 0; iter < 15; iter++) {
                                 let remGross = grossNeeded;
                                 
+                                // Step 1: Automatic interest income sweeps down spending first
+                                remGross = Math.max(0, remGross - annualInterest);
+
+                                // Step 2: Draw from Taxable Brokerage (Bridge)
                                 brokeragePull = Math.min(remGross, currentBridge);
                                 remGross -= brokeragePull;
 
+                                // Step 3: Draw from liquid Cash Reserves (Tax-free principal pull)
+                                cashPull = Math.min(remGross, currentCash);
+                                remGross -= cashPull;
+
+                                // Step 4: Draw remaining balance from Core Pre-Tax
                                 corePull = Math.min(remGross, currentCore);
                                 remGross -= corePull;
 
@@ -468,7 +497,7 @@
                                     break;
                                 }
 
-                                let actualTax = calculateAnnualTax(corePull, brokeragePull, dynamicBasisRatio);
+                                let actualTax = calculateAnnualTax(corePull, brokeragePull, dynamicBasisRatio, annualInterest);
                                 
                                 if (Math.abs(actualTax - estimatedTax) < 1) {
                                     estimatedTax = actualTax;
@@ -482,25 +511,27 @@
                             if (pathInsolvent) {
                                 currentBridge = 0;
                                 currentCore = 0;
+                                currentCash = 0;
                                 break;
                             }
 
-                            // Execute final deductions
+                            // Commit final calculated balance reductions
                             currentBridge -= brokeragePull;
+                            currentCash -= cashPull;
                             currentCore -= corePull;
 
                             currentBridge *= (1 + annualReturn);
                             currentCore *= (1 + annualReturn);
                             
-                            // Gradually decline basis ratio as portfolio experiences growth over decades
                             dynamicBasisRatio = Math.max(0.20, dynamicBasisRatio * 0.99);
                         }
 
                         if (currentBridge < 0) currentBridge = 0;
                         if (currentCore < 0) currentCore = 0;
+                        if (currentCash < 0) currentCash = 0;
 
                         if (age === d.retirementAge - 1) {
-                            retirementCombinedValues.push(currentBridge + currentCore);
+                            retirementCombinedValues.push(currentBridge + currentCore + currentCash);
                             retirementBridgeValues.push(currentBridge);
                             retirementCoreValues.push(currentCore);
                         }
@@ -512,15 +543,15 @@
                         currentSpending *= (1 + d.inflationRate);
 
                         if (shouldTrackPlotData) {
-                            pathCombined.push(currentBridge + currentCore);
+                            pathCombined.push(currentBridge + currentCore + currentCash);
                             pathBridge.push(currentBridge);
                             pathCore.push(currentCore);
                         }
                     }
 
-                    if (!pathInsolvent && (currentBridge + currentCore > 0)) lifetimeSuccessCount++;
+                    if (!pathInsolvent && (currentBridge + currentCore + currentCash > 0)) lifetimeSuccessCount++;
                     if (bridgeSurvivedTo60 && !pathInsolvent) bridgeSuccessCount++;
-                    terminalCombinedValues.push(currentBridge + currentCore);
+                    terminalCombinedValues.push(currentBridge + currentCore + currentCash);
 
                     if (shouldTrackPlotData) {
                         plotCombined.push(pathCombined);
@@ -538,7 +569,7 @@
                     successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
                     bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
                     medianEstate: terminalCombinedValues[Math.floor(iterations / 2)],
-                    medianRetNW: retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital),
+                    medianRetNW: retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.cashReserve),
                     medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
                     medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
                     plotCombined, plotBridge, plotCore
@@ -553,7 +584,7 @@
 
         let startAge = 37, retirementAge = 45, endAge = 90;
         let savingsTaxable = 0, savings401k = 0, savingsRoth = 0, savingsHSA = 0;
-        let spending = 90000, bridgeCapital = 0, coreCapital = 0;
+        let spending = 90000, bridgeCapital = 0, coreCapital = 0, cashReserve = 0;
         let meanReturn = 0.075, stdDev = 0.12, inflationRate = 0.025;
         let healthPremium = 10000, socialSecurity = 2500, ltcCost = 3000;
         
@@ -579,7 +610,7 @@
         function runMonteCarloSimulation() {
             document.getElementById('processing-indicator').classList.remove('hidden');
             syncNetWorthSummaryPanel();
-            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
+            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
             if (!simWorker) initWorker();
             simWorker.postMessage(simulationConfig);
         }
@@ -716,7 +747,7 @@
             ingestedRows.forEach(r => { if (r.pool === 'bridge') finalBridge += r.value; else finalCore += r.value; });
             
             if (finalBridge > 2000000) document.getElementById('input-bridge').max = Math.ceil(finalBridge * 1.2);
-            if (finalCore > 5000000) document.getElementById('input-core').max = Math.ceil(finalCore * 1.2);
+            if (finalCore > 2000000) document.getElementById('input-core').max = Math.ceil(finalCore * 1.2);
 
             bridgeCapital = Math.round(finalBridge);
             coreCapital = Math.round(finalCore);
@@ -831,9 +862,10 @@ RETIREMENT TIMELINE & 10,000 PATH MONTE CARLO SUMMARY
 
 ASSET DEPLOYMENT POSITIONING
 --------------------------------------------------
-* Current Net Worth Baseline:   $${(bridgeCapital+coreCapital).toLocaleString()}
+* Current Net Worth Baseline:   $${(bridgeCapital+coreCapital+cashReserve).toLocaleString()}
   - Bridge (Taxable Pool):      $${bridgeCapital.toLocaleString()}
   - Core (Tax-Advantaged Pool): $${coreCapital.toLocaleString()}
+  - Cash Reserves Buffer:       $${cashReserve.toLocaleString()}
 
 SAVINGS INJECTION VELOCITY
 --------------------------------------------------
@@ -863,7 +895,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
 
         function saveCurrentAsBaseline() {
-            const state = { startAge, retirementAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
+            const state = { startAge, retirementAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
             savedBaseline = state; safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
             showNotification("Your structural configuration baseline is locked!"); updateBaselineButtons();
         }
@@ -874,10 +906,11 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
 
         function applyState(s) {
-            startAge = s.startAge; retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending; bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; meanReturn = s.meanReturn; stdDev = s.stdDev; inflationRate = s.inflationRate; healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost;
+            startAge = s.startAge; retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending; bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; cashReserve = s.cashReserve || 0; meanReturn = s.meanReturn; stdDev = s.stdDev; inflationRate = s.inflationRate; healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost;
             document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
             document.getElementById('input-savings-taxable').value = savingsTaxable; document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('input-savings-hsa').value = savingsHSA;
             document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('input-core').value = coreCapital;
+            document.getElementById('input-cash-reserve').value = cashReserve; document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
             document.getElementById('input-return').value = (meanReturn*100).toFixed(1); document.getElementById('input-volatility').value = (stdDev*100).toFixed(1); document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
             document.getElementById('input-health').value = healthPremium; document.getElementById('input-ss').value = socialSecurity; document.getElementById('input-ltc').value = ltcCost;
             updateLabelElements(); runMonteCarloSimulation();
@@ -896,11 +929,12 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function updateSpending(v) { spending = parseInt(v); document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateBridge(v) { bridgeCapital = parseInt(v); document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateCore(v) { coreCapital = parseInt(v); document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`; runMonteCarloSimulation(); }
+        function updateCashReserve(v) { cashReserve = parseInt(v); document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateReturn(v) { meanReturn = parseFloat(v)/100; document.getElementById('label-return').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateVolatility(v) { stdDev = parseFloat(v)/100; document.getElementById('label-volatility').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateInflation(v) { inflationRate = parseFloat(v)/100; document.getElementById('label-inflation').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateLabelElements() { document.getElementById('label-total-savings').textContent = `Total: $${(savingsTaxable+savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr`; }
-        function syncNetWorthSummaryPanel() { document.getElementById('panel-net-worth').textContent = `$${(bridgeCapital+coreCapital).toLocaleString()}`; document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`; document.getElementById('panel-ret-age-label').textContent = retirementAge; }
+        function syncNetWorthSummaryPanel() { document.getElementById('panel-net-worth').textContent = `$${(cashReserve+bridgeCapital+coreCapital).toLocaleString()}`; document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`; document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`; document.getElementById('panel-ret-age-label').textContent = retirementAge; }
         function switchChartTab(t) { activeTab = t; ['combined','bridge','core'].forEach(tab => { document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white"; }); renderChartData(); }
         function updateBaselineButtons() { let exist = !!savedBaseline || !!safeStorage.getItem('retirement_sim_baseline_10k'); const btn = document.getElementById('btn-reset-baseline'); if (exist) { btn.disabled = false; btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 active:scale-95"; } else { btn.disabled = true; btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg border border-emerald-500/20 opacity-40 cursor-not-allowed"; } }
 
