@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.17</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.1.8</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Multi-threaded asynchronous processing with integrated progressive tax logic</p>
         </div>
@@ -913,11 +913,40 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             document.getElementById('input-cash-reserve').value = cashReserve; document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
             document.getElementById('input-return').value = (meanReturn*100).toFixed(1); document.getElementById('input-volatility').value = (stdDev*100).toFixed(1); document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
             document.getElementById('input-health').value = healthPremium; document.getElementById('input-ss').value = socialSecurity; document.getElementById('input-ltc').value = ltcCost;
-            updateLabelElements(); runMonteCarloSimulation();
+            updateLabelElements(); 
+            setRetirementAge(retirementAge); 
         }
 
-        function updateCurrentAge(v) { startAge = parseInt(v); document.getElementById('label-current-age').textContent = startAge; runMonteCarloSimulation(); }
-        function setRetirementAge(age) { retirementAge = age; [45, 50, 55, 62, 67].forEach(b => { document.getElementById(`btn-age-${b}`).className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"; }); runMonteCarloSimulation(); }
+        function updateCurrentAge(v) { 
+            startAge = parseInt(v); 
+            document.getElementById('label-current-age').textContent = startAge; 
+            
+            const validAges = [45, 50, 55, 62, 67];
+            if (startAge > retirementAge) {
+                let nextValidAge = validAges.find(age => age >= startAge);
+                if (!nextValidAge) nextValidAge = 67; 
+                setRetirementAge(nextValidAge); 
+            } else {
+                setRetirementAge(retirementAge); 
+            }
+        }
+        
+        function setRetirementAge(age) { 
+            if (age < startAge) return; 
+            retirementAge = age; 
+            [45, 50, 55, 62, 67].forEach(b => { 
+                let btn = document.getElementById(`btn-age-${b}`);
+                if (b < startAge) {
+                    btn.className = "py-2 text-xs rounded-lg text-slate-600 bg-slate-900 opacity-50 cursor-not-allowed";
+                    btn.disabled = true;
+                } else {
+                    btn.className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800";
+                    btn.disabled = false;
+                }
+            }); 
+            runMonteCarloSimulation(); 
+        }
+
         function updateSavingsTaxable(v) { savingsTaxable = parseInt(v); document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavings401k(v) { savings401k = parseInt(v); document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
