@@ -593,9 +593,6 @@
         
         let ingestedRows = []; 
 
-        // Add the debounce timer variable
-        let simDebounceTimer = null;
-
         function initWorker() {
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             simWorker = new Worker(URL.createObjectURL(blob));
@@ -616,16 +613,6 @@
             const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
             if (!simWorker) initWorker();
             simWorker.postMessage(simulationConfig);
-        }
-
-        // Add the debounce wrapper function
-        function triggerDebouncedSimulation() {
-            // Show the UI syncing indicator instantly so it feels responsive
-            document.getElementById('processing-indicator').classList.remove('hidden');
-            clearTimeout(simDebounceTimer);
-            simDebounceTimer = setTimeout(() => {
-                runMonteCarloSimulation();
-            }, 300); // 300ms delay to protect the browser
         }
 
         function parseCSVLine(text) {
@@ -929,25 +916,23 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             updateLabelElements(); runMonteCarloSimulation();
         }
 
-        // Updated all input functions to use the debounced trigger instead of running immediately
-        function updateCurrentAge(v) { startAge = parseInt(v); document.getElementById('label-current-age').textContent = startAge; triggerDebouncedSimulation(); }
-        function setRetirementAge(age) { retirementAge = age; [45, 50, 55, 62, 67].forEach(b => { document.getElementById(`btn-age-${b}`).className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"; }); triggerDebouncedSimulation(); }
-        function updateSavingsTaxable(v) { savingsTaxable = parseInt(v); document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`; updateLabelElements(); triggerDebouncedSimulation(); }
-        function updateSavings401k(v) { savings401k = parseInt(v); document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`; updateLabelElements(); triggerDebouncedSimulation(); }
-        function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); triggerDebouncedSimulation(); }
-        function updateSavingsHSA(v) { savingsHSA = parseInt(v); document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`; updateLabelElements(); triggerDebouncedSimulation(); }
+        function updateCurrentAge(v) { startAge = parseInt(v); document.getElementById('label-current-age').textContent = startAge; runMonteCarloSimulation(); }
+        function setRetirementAge(age) { retirementAge = age; [45, 50, 55, 62, 67].forEach(b => { document.getElementById(`btn-age-${b}`).className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"; }); runMonteCarloSimulation(); }
+        function updateSavingsTaxable(v) { savingsTaxable = parseInt(v); document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
+        function updateSavings401k(v) { savings401k = parseInt(v); document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
+        function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
+        function updateSavingsHSA(v) { savingsHSA = parseInt(v); document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function snapHSALimit(v) { document.getElementById('input-savings-hsa').value = v; updateSavingsHSA(v); }
-        function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; triggerDebouncedSimulation(); }
-        function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; triggerDebouncedSimulation(); }
-        function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; triggerDebouncedSimulation(); }
-        function updateSpending(v) { spending = parseInt(v); document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`; triggerDebouncedSimulation(); }
-        function updateBridge(v) { bridgeCapital = parseInt(v); document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`; triggerDebouncedSimulation(); }
-        function updateCore(v) { coreCapital = parseInt(v); document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`; triggerDebouncedSimulation(); }
-        function updateCashReserve(v) { cashReserve = parseInt(v); document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`; triggerDebouncedSimulation(); }
-        function updateReturn(v) { meanReturn = parseFloat(v)/100; document.getElementById('label-return').textContent = `${v}%`; triggerDebouncedSimulation(); }
-        function updateVolatility(v) { stdDev = parseFloat(v)/100; document.getElementById('label-volatility').textContent = `${v}%`; triggerDebouncedSimulation(); }
-        function updateInflation(v) { inflationRate = parseFloat(v)/100; document.getElementById('label-inflation').textContent = `${v}%`; triggerDebouncedSimulation(); }
-        
+        function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; runMonteCarloSimulation(); }
+        function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; runMonteCarloSimulation(); }
+        function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; runMonteCarloSimulation(); }
+        function updateSpending(v) { spending = parseInt(v); document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`; runMonteCarloSimulation(); }
+        function updateBridge(v) { bridgeCapital = parseInt(v); document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`; runMonteCarloSimulation(); }
+        function updateCore(v) { coreCapital = parseInt(v); document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`; runMonteCarloSimulation(); }
+        function updateCashReserve(v) { cashReserve = parseInt(v); document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`; runMonteCarloSimulation(); }
+        function updateReturn(v) { meanReturn = parseFloat(v)/100; document.getElementById('label-return').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateVolatility(v) { stdDev = parseFloat(v)/100; document.getElementById('label-volatility').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateInflation(v) { inflationRate = parseFloat(v)/100; document.getElementById('label-inflation').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateLabelElements() { document.getElementById('label-total-savings').textContent = `Total: $${(savingsTaxable+savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr`; }
         function syncNetWorthSummaryPanel() { document.getElementById('panel-net-worth').textContent = `$${(cashReserve+bridgeCapital+coreCapital).toLocaleString()}`; document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`; document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`; document.getElementById('panel-ret-age-label').textContent = retirementAge; }
         function switchChartTab(t) { activeTab = t; ['combined','bridge','core'].forEach(tab => { document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white"; }); renderChartData(); }
@@ -958,7 +943,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             setRetirementAge(45);
             updateBaselineButtons();
             updateLabelElements();
-            runMonteCarloSimulation(); // Keep the initial load instant
+            runMonteCarloSimulation();
         };
     </script>
 </body>
