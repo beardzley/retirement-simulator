@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.2.2.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.2.1.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Multi-threaded asynchronous processing with integrated progressive tax logic</p>
         </div>
@@ -655,24 +655,29 @@
                     }
                 }
 
+                terminalCombinedValues.sort((a, b) => a - b);
+                retirementCombinedValues.sort((a, b) => a - b);
+                retirementBridgeValues.sort((a, b) => a - b);
+                retirementCoreValues.sort((a, b) => a - b);
 
-//Capping lottery winners
-const percentile = 0.95; 
-const pIndex = Math.floor(terminalCombinedValues.length * percentile);
-const capValue = terminalCombinedValues[pIndex];
+                
+                    //Identify 95th percentile value to use as the cap
+                    const p95Index = Math.floor(terminalCombinedValues.length * 0.95);
+                    const capValue = terminalCombinedValues[p99Index];
 
-terminalCombinedValues = terminalCombinedValues.map(v => Math.min(v, capValue));
+                    //Capping the terminal values (for stats)
+                    terminalCombinedValues = terminalCombinedValues.map(v => Math.min(v, capValue));
 
-// Cap the plot arrays to keep the visual range tight
-if (typeof plotCombined !== 'undefined') {
-    plotCombined = plotCombined.map(path => path.map(v => Math.min(v, capValue)));
-}
-if (typeof plotBridge !== 'undefined') {
-    plotBridge = plotBridge.map(path => path.map(v => Math.min(v, capValue)));
-}
-if (typeof plotCore !== 'undefined') {
-    plotCore = plotCore.map(path => path.map(v => Math.min(v, capValue)));
-}
+                    // 3. Cap the plot arrays (this is CRITICAL for the chart to stop showing spikes)
+                    // We use a safe check to ensure the arrays exist before mapping
+                    if (typeof plotCombined !== 'undefined') {
+                   plotCombined = plotCombined.map(path => path.map(v => Math.min(v, capValue)));
+                  }
+                     if (typeof plotBridge !== 'undefined') {
+                    plotBridge = plotBridge.map(path => path.map(v => Math.min(v, capValue)));
+                  }
+                     if (typeof plotCore !== 'undefined') {
+                     plotCore = plotCore.map(path => path.map(v => Math.min(v, capValue)));
                         }
                 
                 self.postMessage({
