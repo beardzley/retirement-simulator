@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.1.8</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.1.8.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Multi-threaded asynchronous processing with integrated progressive tax logic</p>
         </div>
@@ -140,26 +140,27 @@
                     <p class="text-[11px] text-slate-400 mt-2" id="timeline-explainer">Currently age 37. Simulating until age 90.</p>
                 </div>
 
-                <div class="pt-3 flex items-center justify-between">
-                    <label class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer">
+  <div class="pt-3 flex items-center justify-between">
+                    <label for="toggle-5515" class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer">
                         <span class="material-icons text-sm text-cyan-400">account_balance</span>
                         Corporate 55/15 Exemption
                     </label>
-                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                        <input type="checkbox" id="toggle-5515" onchange="toggle5515(this.checked)" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-slate-700 appearance-none cursor-pointer"/>
-                        <label for="toggle-5515" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-700 cursor-pointer"></label>
-                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="toggle-5515" onchange="toggle5515(this.checked)" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 border border-slate-600"></div>
+                    </label>
                 </div>
 
                 <div class="pt-2 flex items-center justify-between border-t border-slate-800/60 mt-3">
-                    <label class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer mt-3">
+                    <label for="toggle-dynamic-spend" class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer mt-3">
                         <span class="material-icons text-sm text-amber-400">trending_down</span>
                         Dynamic Spending Curve
                     </label>
-                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in mt-3">
-                        <input type="checkbox" id="toggle-dynamic-spend" onchange="toggleDynamicSpend(this.checked)" checked class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 border-slate-700 appearance-none cursor-pointer"/>
-                        <label for="toggle-dynamic-spend" class="toggle-label block overflow-hidden h-5 rounded-full bg-slate-700 cursor-pointer"></label>
-                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer mt-3">
+                        <input type="checkbox" id="toggle-dynamic-spend" onchange="toggleDynamicSpend(this.checked)" checked class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 border border-slate-600"></div>
+                    </label>
+                </div>
                 </div>
             </div>
 
