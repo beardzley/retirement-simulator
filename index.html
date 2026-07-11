@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retirement Bridge & Core Lifetime Simulator (10k Monte Carlo)</title>
+    <title>https://beardzley.github.io/retirement-simulator/</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.1.8.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.19</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Multi-threaded asynchronous processing with integrated progressive tax logic</p>
         </div>
@@ -58,8 +58,7 @@
                 </div>
                 <button onclick="closeCSVModal()" class="text-slate-400 hover:text-white"><span class="material-icons">close</span></button>
             </div>
-            <div class="p-5 overflow-y-auto space-y-3 flex-1" id="csv-rows-container">
-                </div>
+            <div class="p-5 overflow-y-auto space-y-3 flex-1" id="csv-rows-container"></div>
             <div class="p-4 border-t border-slate-800 bg-slate-950/40 flex justify-between items-center text-xs">
                 <div class="flex gap-4">
                     <div>Bridge Delta: <span id="modal-bridge-total" class="font-mono font-bold text-emerald-400">$0</span></div>
@@ -136,35 +135,32 @@
                         <button onclick="setRetirementAge(55)" id="btn-age-55" class="py-2 text-xs rounded-lg transition-all">55</button>
                         <button onclick="setRetirementAge(62)" id="btn-age-62" class="py-2 text-xs rounded-lg transition-all">62</button>
                         <button onclick="setRetirementAge(67)" id="btn-age-67" class="py-2 text-xs rounded-lg transition-all">67</button>
-                </div>
+                    </div>
                     <p class="text-[11px] text-slate-400 mt-2" id="timeline-explainer">Currently age 37. Simulating until age 90.</p>
                 </div>
 
-  <div class="pt-3 flex items-center justify-between">
-                    <label for="toggle-5515" class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer">
+                <div class="pt-3 flex items-center justify-between border-t border-slate-800/60 mt-3">
+                    <label for="toggle-5515" class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer mt-3">
                         <span class="material-icons text-sm text-cyan-400">account_balance</span>
                         Corporate 55/15 Exemption
                     </label>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="toggle-5515" onchange="toggle5515(this.checked)" class="sr-only peer">
+                    <label class="relative inline-flex items-center cursor-pointer mt-3">
+                        <input type="checkbox" id="toggle-5515" onchange="updateToggle5515(this.checked)" class="sr-only peer">
                         <div class="w-9 h-5 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 border border-slate-600"></div>
                     </label>
                 </div>
 
-                <div class="pt-2 flex items-center justify-between border-t border-slate-800/60 mt-3">
-                    <label for="toggle-dynamic-spend" class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer mt-3">
+                <div class="pt-1 flex items-center justify-between mt-2">
+                    <label for="toggle-dynamic-spend" class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer mt-2">
                         <span class="material-icons text-sm text-amber-400">trending_down</span>
-                        Dynamic Spending Curve
+                        Dynamic Go-Go/Slow-Go Curve
                     </label>
-                    <label class="relative inline-flex items-center cursor-pointer mt-3">
-                        <input type="checkbox" id="toggle-dynamic-spend" onchange="toggleDynamicSpend(this.checked)" checked class="sr-only peer">
+                    <label class="relative inline-flex items-center cursor-pointer mt-2">
+                        <input type="checkbox" id="toggle-dynamic-spend" onchange="updateToggleDynamicSpend(this.checked)" class="sr-only peer">
                         <div class="w-9 h-5 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 border border-slate-600"></div>
                     </label>
-                </div>
                 </div>
             </div>
-
-            <div class="border-t border-slate-800/60 pt-5 space-y-5">
 
             <div class="border-t border-slate-800/60 pt-5 space-y-5">
                 <div class="flex justify-between items-center mb-1">
@@ -272,29 +268,59 @@
             </div>
 
             <div class="border-t border-slate-800/60 pt-5 space-y-5">
-                <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">Market Assumptions</h2>
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="text-sm font-medium text-slate-300">Average Annual Return</label>
-                        <span id="label-return" class="text-sm font-mono font-bold text-cyan-400">7.5%</span>
+                <h2 class="text-xs font-bold text-emerald-400 tracking-wider uppercase mb-1">Decoupled Market Assumptions</h2>
+                
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-3">Bridge (Aggressive Strategy)</h3>
+                    <div class="mb-3">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-medium text-slate-300">Average Return</label>
+                            <span id="label-return-bridge" class="text-xs font-mono font-bold text-emerald-400">9.5%</span>
+                        </div>
+                        <input type="range" id="input-return-bridge" min="4" max="15" step="0.5" value="9.5" oninput="updateReturnBridge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                     </div>
-                    <input type="range" id="input-return" min="4" max="12" step="0.5" value="7.5" oninput="updateReturn(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-medium text-slate-300">Volatility (Std Dev)</label>
+                            <span id="label-vol-bridge" class="text-xs font-mono font-bold text-emerald-400">18.0%</span>
+                        </div>
+                        <input type="range" id="input-vol-bridge" min="5" max="30" step="1.0" value="18.0" oninput="updateVolBridge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                    </div>
                 </div>
 
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="text-sm font-medium text-slate-300">Market Volatility (Std Dev)</label>
-                        <span id="label-volatility" class="text-sm font-mono font-bold text-cyan-400">12.0%</span>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 mt-4">
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase mb-3">Core (Broad Market Index)</h3>
+                    <div class="mb-3">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-medium text-slate-300">Average Return</label>
+                            <span id="label-return-core" class="text-xs font-mono font-bold text-cyan-400">7.5%</span>
+                        </div>
+                        <input type="range" id="input-return-core" min="4" max="12" step="0.5" value="7.5" oninput="updateReturnCore(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
                     </div>
-                    <input type="range" id="input-volatility" min="5" max="25" step="1.0" value="12.0" oninput="updateVolatility(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-medium text-slate-300">Volatility (Std Dev)</label>
+                            <span id="label-vol-core" class="text-xs font-mono font-bold text-cyan-400">12.0%</span>
+                        </div>
+                        <input type="range" id="input-vol-core" min="5" max="25" step="1.0" value="12.0" oninput="updateVolCore(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    </div>
                 </div>
 
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="text-sm font-medium text-slate-300">Annual Inflation Rate</label>
-                        <span id="label-inflation" class="text-sm font-mono font-bold text-red-400">2.5%</span>
+                <div class="space-y-4 mt-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-sm font-medium text-slate-300">Cash/SPAXX Yield Rate</label>
+                            <span id="label-cash-yield" class="text-sm font-mono font-bold text-purple-400">3.29%</span>
+                        </div>
+                        <input type="range" id="input-cash-yield" min="0" max="7" step="0.01" value="3.29" oninput="updateCashYield(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
                     </div>
-                    <input type="range" id="input-inflation" min="0" max="6" step="0.5" value="2.5" oninput="updateInflation(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-sm font-medium text-slate-300">Annual Inflation Rate</label>
+                            <span id="label-inflation" class="text-sm font-mono font-bold text-red-400">2.5%</span>
+                        </div>
+                        <input type="range" id="input-inflation" min="0" max="6" step="0.5" value="2.5" oninput="updateInflation(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+                    </div>
                 </div>
             </div>
         </section>
@@ -369,7 +395,6 @@
     </main>
 
     <script>
-        // Web Worker Execution Engine Script Block (Tax-Engine Enabled)
         const workerCode = `
             self.onmessage = function(e) {
                 const d = e.data;
@@ -392,29 +417,27 @@
                     return (Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2)) * std + mean;
                 }
 
-                // 2026 Progressive Tax Calculator
-                function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest) {
-                    const standardDeduction = 16100;
+                // 2026 Progressive Tax Calculator with Inflation Indexed Brackets
+                function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, currentAge) {
+                    let inflMult = Math.pow(1 + d.inflationRate, currentAge - d.startAge);
+                    let standardDeduction = 16100 * inflMult;
                     
-                    // 2026 Ordinary Income Brackets (Single Filer)
                     const ordBrackets = [
-                        { limit: 12400, rate: 0.10 },
-                        { limit: 50400, rate: 0.12 },
-                        { limit: 105700, rate: 0.22 },
-                        { limit: 201775, rate: 0.24 },
-                        { limit: 256225, rate: 0.32 },
-                        { limit: 640600, rate: 0.35 },
+                        { limit: 12400 * inflMult, rate: 0.10 },
+                        { limit: 50400 * inflMult, rate: 0.12 },
+                        { limit: 105700 * inflMult, rate: 0.22 },
+                        { limit: 201775 * inflMult, rate: 0.24 },
+                        { limit: 256225 * inflMult, rate: 0.32 },
+                        { limit: 640600 * inflMult, rate: 0.35 },
                         { limit: Infinity, rate: 0.37 }
                     ];
 
-                    // 2026 Long-Term Capital Gains Brackets
                     const ltcgBrackets = [
-                        { limit: 49450, rate: 0.00 },
-                        { limit: 545500, rate: 0.15 },
+                        { limit: 49450 * inflMult, rate: 0.00 },
+                        { limit: 545500 * inflMult, rate: 0.15 },
                         { limit: Infinity, rate: 0.20 }
                     ];
 
-                    // Step 1: Ordinary Income includes Pre-Tax + Cash Interest
                     let grossOrdinary = preTaxWithdrawn + cashInterest;
                     let taxableOrdinary = Math.max(0, grossOrdinary - standardDeduction);
                     let unusedDeduction = Math.max(0, standardDeduction - grossOrdinary);
@@ -431,7 +454,6 @@
                         }
                     }
 
-                    // Step 2: Long-Term Capital Gains (Stacked)
                     let realizedGains = brokerageWithdrawn * (1.0 - costBasisRatio);
                     let taxableLtcg = Math.max(0, realizedGains - unusedDeduction);
 
@@ -460,7 +482,7 @@
                     let currentBridge = d.bridgeCapital;
                     let currentCore = d.coreCapital;
                     let currentCash = d.cashReserve || 0;
-                    let currentSpending = d.spending;
+                    let baseSpending = d.spending;
                     
                     let dynamicBasisRatio = 0.50; 
 
@@ -471,27 +493,31 @@
                     let bridgeSurvivedTo60 = true;
                     let shouldTrackPlotData = (i < 100);
                     let pathInsolvent = false;
-                    
-                    const cashYieldRate = 0.035; // Standard liquid yield
 
                     for (let age = d.startAge; age < d.endAge; age++) {
-                        const annualReturn = generateGaussian(d.meanReturn, d.stdDev);
+                        const annualReturnBridge = generateGaussian(d.meanReturnBridge, d.stdDevBridge);
+                        const annualReturnCore = generateGaussian(d.meanReturnCore, d.stdDevCore);
                         
                         if (age < d.retirementAge) {
-                            currentBridge = (currentBridge + d.savingsTaxable) * (1 + annualReturn);
-                            currentCore = (currentCore + d.savings401k + d.savingsRoth + d.savingsHSA) * (1 + annualReturn);
-                            currentCash = currentCash * (1 + cashYieldRate);
+                            currentBridge = (currentBridge + d.savingsTaxable) * (1 + annualReturnBridge);
+                            currentCore = (currentCore + d.savings401k + d.savingsRoth + d.savingsHSA) * (1 + annualReturnCore);
+                            currentCash = currentCash * (1 + d.cashYield);
                         } else {
-                            let netNeed = currentSpending;
+                            // Phase-based Dynamic Go-Go, Slow-Go, No-Go Curve
+                            let phaseMult = 1.0;
+                            if (d.isDynamicSpendEnabled) {
+                                if (age >= 60 && age <= 74) phaseMult = 0.80;
+                                else if (age >= 75) phaseMult = 0.90;
+                            }
+
+                            let netNeed = baseSpending * phaseMult;
                             if (age < 65) netNeed += d.healthPremium;
                             if (age >= 60) netNeed += d.ltcCost;
                             if (age >= 67) netNeed = Math.max(0, netNeed - (d.socialSecurity * 12));
 
-                            // Cash yield compounds and triggers ordinary income parameters
-                            let annualInterest = currentCash * cashYieldRate;
+                            let annualInterest = currentCash * d.cashYield;
                             currentCash += annualInterest;
 
-                            // Iterative Net-to-Gross Tax Solver
                             let estimatedTax = 0;
                             let grossNeeded = netNeed + estimatedTax;
                             let brokeragePull = 0;
@@ -501,19 +527,14 @@
 
                             for (let iter = 0; iter < 15; iter++) {
                                 let remGross = grossNeeded;
-                                
-                                // Step 1: Automatic interest income sweeps down spending first
                                 remGross = Math.max(0, remGross - annualInterest);
-
-                                // Step 2: Draw from Taxable Brokerage (Bridge)
+                                
                                 brokeragePull = Math.min(remGross, currentBridge);
                                 remGross -= brokeragePull;
 
-                                // Step 3: Draw from liquid Cash Reserves (Tax-free principal pull)
                                 cashPull = Math.min(remGross, currentCash);
                                 remGross -= cashPull;
 
-                                // Step 4: Draw remaining balance from Core Pre-Tax
                                 corePull = Math.min(remGross, currentCore);
                                 remGross -= corePull;
 
@@ -522,7 +543,20 @@
                                     break;
                                 }
 
-                                let actualTax = calculateAnnualTax(corePull, brokeragePull, dynamicBasisRatio, annualInterest);
+                                let penalty = 0;
+                                // 10% IRS Penalty calculation prior to age 59.5 (using 60)
+                                if (age < 60 && corePull > 0) {
+                                    let exempt = false;
+                                    // 55/15 Exemption Math Override
+                                    if (d.is5515Enabled && d.retirementAge >= 55 && age >= 55) {
+                                        exempt = true;
+                                    }
+                                    if (!exempt) {
+                                        penalty = corePull * 0.10;
+                                    }
+                                }
+
+                                let actualTax = calculateAnnualTax(corePull, brokeragePull, dynamicBasisRatio, annualInterest, age) + penalty;
                                 
                                 if (Math.abs(actualTax - estimatedTax) < 1) {
                                     estimatedTax = actualTax;
@@ -540,13 +574,12 @@
                                 break;
                             }
 
-                            // Commit final calculated balance reductions
                             currentBridge -= brokeragePull;
                             currentCash -= cashPull;
                             currentCore -= corePull;
 
-                            currentBridge *= (1 + annualReturn);
-                            currentCore *= (1 + annualReturn);
+                            currentBridge *= (1 + annualReturnBridge);
+                            currentCore *= (1 + annualReturnCore);
                             
                             dynamicBasisRatio = Math.max(0.20, dynamicBasisRatio * 0.99);
                         }
@@ -565,7 +598,7 @@
                             bridgeSurvivedTo60 = false;
                         }
 
-                        currentSpending *= (1 + d.inflationRate);
+                        baseSpending *= (1 + d.inflationRate);
 
                         if (shouldTrackPlotData) {
                             pathCombined.push(currentBridge + currentCore + currentCash);
@@ -610,8 +643,10 @@
         let startAge = 37, retirementAge = 45, endAge = 90;
         let savingsTaxable = 0, savings401k = 0, savingsRoth = 0, savingsHSA = 0;
         let spending = 90000, bridgeCapital = 0, coreCapital = 0, cashReserve = 0;
-        let meanReturn = 0.075, stdDev = 0.12, inflationRate = 0.025;
+        let meanReturnBridge = 0.095, stdDevBridge = 0.18, meanReturnCore = 0.075, stdDevCore = 0.12;
+        let inflationRate = 0.025, cashYield = 0.0329;
         let healthPremium = 10000, socialSecurity = 2500, ltcCost = 3000;
+        let is5515Enabled = false, isDynamicSpendEnabled = false;
         
         let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null;
         let globalPlotData = { combined: [], bridge: [], core: [] }, lastSimulatedMetrics = {};
@@ -635,7 +670,7 @@
         function runMonteCarloSimulation() {
             document.getElementById('processing-indicator').classList.remove('hidden');
             syncNetWorthSummaryPanel();
-            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
+            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, healthPremium, socialSecurity, ltcCost, is5515Enabled, isDynamicSpendEnabled };
             if (!simWorker) initWorker();
             simWorker.postMessage(simulationConfig);
         }
@@ -883,7 +918,10 @@ RETIREMENT TIMELINE & 10,000 PATH MONTE CARLO SUMMARY
 ==================================================
 * Current Age:                  ${startAge} Years Old
 * Target Milestone Age:         ${retirementAge} Years Old
-* Model Parameters:             ${(meanReturn*100).toFixed(1)}% Return / ${(stdDev*100).toFixed(1)}% Volatility
+* Bridge Market Assumptions:    ${(meanReturnBridge*100).toFixed(1)}% Return / ${(stdDevBridge*100).toFixed(1)}% Volatility
+* Core Market Assumptions:      ${(meanReturnCore*100).toFixed(1)}% Return / ${(stdDevCore*100).toFixed(1)}% Volatility
+* Corporate 55/15 Exemption:    ${is5515Enabled ? "ENABLED" : "DISABLED"}
+* Dynamic Spending Curve:       ${isDynamicSpendEnabled ? "ENABLED" : "DISABLED"}
 
 ASSET DEPLOYMENT POSITIONING
 --------------------------------------------------
@@ -908,7 +946,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
 --------------------------------------------------
 * Combined Total Net Worth:     ${lastSimulatedMetrics.projectedNWRetirement || '$0'}
   - Projected Taxable Bridge:   ${lastSimulatedMetrics.projectedBridgeRetirement || '$0'}
-  - Projected Core Portfolio:  ${lastSimulatedMetrics.projectedCoreRetirement || '$0'}
+  - Projected Core Portfolio:   ${lastSimulatedMetrics.projectedCoreRetirement || '$0'}
 ==================================================`;
 
             try { navigator.clipboard.writeText(textSummary); showNotification("Profile summary data copied to clipboard!"); } catch(e){}
@@ -920,7 +958,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
 
         function saveCurrentAsBaseline() {
-            const state = { startAge, retirementAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturn, stdDev, inflationRate, healthPremium, socialSecurity, ltcCost };
+            const state = { startAge, retirementAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, healthPremium, socialSecurity, ltcCost, is5515Enabled, isDynamicSpendEnabled };
             savedBaseline = state; safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
             showNotification("Your structural configuration baseline is locked!"); updateBaselineButtons();
         }
@@ -931,21 +969,37 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
 
         function applyState(s) {
-            startAge = s.startAge; retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending; bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; cashReserve = s.cashReserve || 0; meanReturn = s.meanReturn; stdDev = s.stdDev; inflationRate = s.inflationRate; healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost;
+            startAge = s.startAge; retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending; bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; cashReserve = s.cashReserve || 0; 
+            meanReturnBridge = s.meanReturnBridge || s.meanReturn || 0.095; 
+            stdDevBridge = s.stdDevBridge || s.stdDev || 0.18; 
+            meanReturnCore = s.meanReturnCore || s.meanReturn || 0.075; 
+            stdDevCore = s.stdDevCore || s.stdDev || 0.12; 
+            cashYield = s.cashYield || 0.0329; 
+            inflationRate = s.inflationRate; healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost;
+            
+            is5515Enabled = s.is5515Enabled || false;
+            isDynamicSpendEnabled = s.isDynamicSpendEnabled || false;
+            
+            document.getElementById('toggle-5515').checked = is5515Enabled;
+            document.getElementById('toggle-dynamic-spend').checked = isDynamicSpendEnabled;
+            
             document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
             document.getElementById('input-savings-taxable').value = savingsTaxable; document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('input-savings-hsa').value = savingsHSA;
             document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('input-core').value = coreCapital;
             document.getElementById('input-cash-reserve').value = cashReserve; document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
-            document.getElementById('input-return').value = (meanReturn*100).toFixed(1); document.getElementById('input-volatility').value = (stdDev*100).toFixed(1); document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
+            document.getElementById('input-return-bridge').value = (meanReturnBridge*100).toFixed(1); document.getElementById('label-return-bridge').textContent = `${(meanReturnBridge*100).toFixed(1)}%`;
+            document.getElementById('input-vol-bridge').value = (stdDevBridge*100).toFixed(1); document.getElementById('label-vol-bridge').textContent = `${(stdDevBridge*100).toFixed(1)}%`;
+            document.getElementById('input-return-core').value = (meanReturnCore*100).toFixed(1); document.getElementById('label-return-core').textContent = `${(meanReturnCore*100).toFixed(1)}%`;
+            document.getElementById('input-vol-core').value = (stdDevCore*100).toFixed(1); document.getElementById('label-vol-core').textContent = `${(stdDevCore*100).toFixed(1)}%`;
+            document.getElementById('input-cash-yield').value = (cashYield*100).toFixed(2); document.getElementById('label-cash-yield').textContent = `${(cashYield*100).toFixed(2)}%`;
+            document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
             document.getElementById('input-health').value = healthPremium; document.getElementById('input-ss').value = socialSecurity; document.getElementById('input-ltc').value = ltcCost;
-            updateLabelElements(); 
-            setRetirementAge(retirementAge); 
+            updateLabelElements(); runMonteCarloSimulation();
         }
 
         function updateCurrentAge(v) { 
             startAge = parseInt(v); 
             document.getElementById('label-current-age').textContent = startAge; 
-            
             const validAges = [45, 50, 55, 62, 67];
             if (startAge > retirementAge) {
                 let nextValidAge = validAges.find(age => age >= startAge);
@@ -972,6 +1026,8 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             runMonteCarloSimulation(); 
         }
 
+        function updateToggle5515(v) { is5515Enabled = v; runMonteCarloSimulation(); }
+        function updateToggleDynamicSpend(v) { isDynamicSpendEnabled = v; runMonteCarloSimulation(); }
         function updateSavingsTaxable(v) { savingsTaxable = parseInt(v); document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavings401k(v) { savings401k = parseInt(v); document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
@@ -984,8 +1040,11 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function updateBridge(v) { bridgeCapital = parseInt(v); document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateCore(v) { coreCapital = parseInt(v); document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateCashReserve(v) { cashReserve = parseInt(v); document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`; runMonteCarloSimulation(); }
-        function updateReturn(v) { meanReturn = parseFloat(v)/100; document.getElementById('label-return').textContent = `${v}%`; runMonteCarloSimulation(); }
-        function updateVolatility(v) { stdDev = parseFloat(v)/100; document.getElementById('label-volatility').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateReturnBridge(v) { meanReturnBridge = parseFloat(v)/100; document.getElementById('label-return-bridge').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateVolBridge(v) { stdDevBridge = parseFloat(v)/100; document.getElementById('label-vol-bridge').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateReturnCore(v) { meanReturnCore = parseFloat(v)/100; document.getElementById('label-return-core').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateVolCore(v) { stdDevCore = parseFloat(v)/100; document.getElementById('label-vol-core').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateCashYield(v) { cashYield = parseFloat(v)/100; document.getElementById('label-cash-yield').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateInflation(v) { inflationRate = parseFloat(v)/100; document.getElementById('label-inflation').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateLabelElements() { document.getElementById('label-total-savings').textContent = `Total: $${(savingsTaxable+savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr`; }
         function syncNetWorthSummaryPanel() { document.getElementById('panel-net-worth').textContent = `$${(cashReserve+bridgeCapital+coreCapital).toLocaleString()}`; document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`; document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`; document.getElementById('panel-ret-age-label').textContent = retirementAge; }
