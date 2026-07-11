@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.2.2.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.2.1.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Multi-threaded asynchronous processing with integrated progressive tax logic</p>
         </div>
@@ -926,30 +926,13 @@
                     plugins: {
                         legend: { display: true, labels: { filter: (item) => item.text === 'Median Cluster Baseline' || item.text === datasetLabel, color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
                         tooltip: {
-    mode: 'index',
-    intersect: false,
-    backgroundColor: '#0f172a',
-    titleColor: '#f8fafc',
-    bodyColor: '#cbd5e1',
-    borderColor: '#334155',
-    borderWidth: 1,
-    callbacks: {
-        label: (context) => {
-            if (context.dataset.borderWidth <= 2 && context.datasetIndex !== 0) return null;
-            
-            let val = context.raw;
-            // Cap the displayed tooltip value at $10M+
-            let displayVal = val >= 10000000 ? '>$10M' : '$' + Math.round(val).toLocaleString();
-            return `${context.dataset.label || 'Path'}: ${displayVal}`
+                            mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
+                            callbacks: { label: (context) => context.dataset.borderWidth > 2 || context.datasetIndex === 0 ? `${context.dataset.label || 'Path'}: $${Math.round(context.raw).toLocaleString()}` : null }
+                        }
                     },
                     scales: {
                         x: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
-                        y: { max: 10000000, grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => 
-                    {
-            if (val >= 10000000) return '$10M+'; 
-            if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
-            if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'k';
-            return '$' + val; } }
+                        y: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'M' : val >= 1000 ? '$' + (val / 1000).toFixed(0) + 'k' : '$' + val } }
                     }
                 }
             });
