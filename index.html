@@ -758,7 +758,7 @@
                             let initialPoolSelection = 'bridge'; 
 
                             // Restructured to ensure HSA bypasses the "brokerage" catch-all
-                            if (combinedLabelText.includes('hsa')) {
+                            if (combinedLabelText.includes('health savings')) {
                                 initialPoolSelection = 'hsa';
                             } else if (combinedLabelText.includes('ira') || combinedLabelText.includes('401k') || combinedLabelText.includes('403b') || combinedLabelText.includes('roth')) {
                                 initialPoolSelection = 'core';
