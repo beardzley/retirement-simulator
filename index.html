@@ -456,22 +456,6 @@
             self.onmessage = function(e) {
                 const d = e.data;
                 const iterations = 10000;
-                // Calculate Median Retirement
-                const sortedRetirement = retirementCombinedValues.sort((a, b) => a - b);
-                const medianRetirementAssets = sortedRetirement[Math.floor(sortedRetirement.length / 2)];
-                // Inside your worker.onmessage handler:
-                const medianAssets = res.medianRetirementAssets;
-                const targetAge = parseInt(document.getElementById('input-ret-age') ? document.getElementById('input-ret-age').value : retirementAge); // Adjust selector to your specific age input
-                const annualSpend = parseFloat(document.getElementById('input-spending').value) + 
-                    (targetAge < 65 ? parseFloat(document.getElementById('input-health').value) : 0);
-
-                const iwr = (annualSpend / medianAssets) * 100;
-
-                const iwrEl = document.getElementById('stat-withdrawal-rate');
-                iwrEl.textContent = `${iwr.toFixed(1)}%`;
-
-                 // Dynamic color coding
-                iwrEl.className = `text-3xl font-extrabold tracking-tight mt-1 ${iwr > 5 ? 'text-red-400' : iwr > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
                 
                 let lifetimeSuccessCount = 0;
                 let bridgeSuccessCount = 0;
@@ -483,7 +467,7 @@
                 let plotCombined = [];
                 let plotBridge = [];
                 let plotCore = [];
-                
+
                 function generateGaussian(mean, std) {
                     const u1 = Math.random();
                     const u2 = Math.random();
@@ -555,7 +539,6 @@
                     let currentHSA = d.hsaStart || 0;
                     let currentCash = d.cashReserve || 0;
                     let currentSpending = d.spending;
-                    
                     let dynamicBasisRatio = 0.50;
                     let pathCombined = [currentBridge + currentCore + currentHSA + currentCash];
                     let pathBridge = [currentBridge];
@@ -564,7 +547,7 @@
                     let bridgeSurvivedTo60 = true;
                     let shouldTrackPlotData = (i < 100);
                     let pathInsolvent = false;
-                    
+
                     for (let age = d.startAge; age < d.endAge; age++) {
                         const annualReturnBridge = generateGaussian(d.meanReturnBridge, d.stdDevBridge);
                         const annualReturnCore = generateGaussian(d.meanReturnCore, d.stdDevCore);
@@ -621,7 +604,7 @@
 
                                 cashPull = Math.min(remGross, currentCash);
                                 remGross -= cashPull;
-                                
+
                                 let extraCorePull = Math.min(remGross, currentCore - corePull);
                                 corePull += extraCorePull;
                                 remGross -= extraCorePull;
@@ -718,25 +701,25 @@
                 retirementBridgeValues.sort((a, b) => a - b);
                 retirementCoreValues.sort((a, b) => a - b);
                 
+                // Safely calculate Withdrawal Rate using projected values mapped to the worker payload
+                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve);
+                let firstYearSpend = d.spending + (d.retirementAge < 65 ? d.healthPremium : 0);
+                let wRate = ((firstYearSpend / medianRetAssets) * 100).toFixed(1);
+
                 self.postMessage({
                     successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
                     bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
                     medianEstate: terminalCombinedValues[Math.floor(iterations / 2)],
-                    medianRetNW: retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve),
+                    medianRetNW: medianRetAssets,
                     medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
                     medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
                     
-                    // Sending full statistical bounds for the Right Rail
                     p05: terminalCombinedValues[Math.floor(iterations * 0.05)],
                     p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
                     p75: terminalCombinedValues[Math.floor(iterations * 0.75)],
                     p95: terminalCombinedValues[Math.floor(iterations * 0.95)],
                     
-                    // Calculate IWR based on starting portfolio and first year of retirement spending
-                    // We look at the first year spending required vs total assets
-                    withdrawalRate: ((d.spending + d.healthPremium) / (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve) * 100).toFixed(1),
-
-                    medianRetirementAssets: medianRetirementAssets
+                    withdrawalRate: wRate,
 
                     plotCombined, plotBridge, plotCore
                 });
@@ -797,59 +780,74 @@
         function handleCSVUpload(input) {
             const file = input.files[0];
             if (!file) return;
+            
+            // FIX 1: Clear input immediately to prevent the race condition
+            input.value = ''; 
+            
             const reader = new FileReader();
             reader.onload = function(e) {
-                const text = e.target.result;
-                const lines = text.split(/\r?\n/);
-                ingestedRows = [];
-                let headers = [];
-                let valueIdx = -1, descIdx = -1, accountIdx = -1;
+                try {
+                    const text = e.target.result;
+                    const lines = text.split(/\r?\n/);
+                    ingestedRows = [];
+                    let headers = [];
+                    let valueIdx = -1, descIdx = -1, accountIdx = -1;
 
-                for (let line of lines) {
-                    if (!line.trim()) continue;
-                    let parsed = parseCSVLine(line);
-                    
-                    if (parsed.some(cell => cell.toLowerCase().includes('current value') || cell.toLowerCase().includes('balance'))) {
-                        headers = parsed.map(h => h.toLowerCase());
-                        valueIdx = headers.findIndex(h => h.includes('current value') || h.includes('balance') || h.includes('value'));
-                        descIdx = headers.findIndex(h => h.includes('description') || h.includes('name') || h.includes('symbol'));
-                        accountIdx = headers.findIndex(h => h.includes('account name') || h.includes('account number'));
-                        continue;
-                    }
+                    for (let line of lines) {
+                        if (!line || !line.trim()) continue;
+                        let parsed = parseCSVLine(line);
+                        
+                        // FIX 2: Safe header check to prevent silent failures on empty cells
+                        if (parsed.some(cell => cell && (cell.toLowerCase().includes('current value') || cell.toLowerCase().includes('balance')))) {
+                            headers = parsed.map(h => h ? h.toLowerCase() : '');
+                            valueIdx = headers.findIndex(h => h.includes('current value') || h.includes('balance') || h.includes('value'));
+                            descIdx = headers.findIndex(h => h.includes('description') || h.includes('name') || h.includes('symbol'));
+                            accountIdx = headers.findIndex(h => h.includes('account name') || h.includes('account number'));
+                            continue;
+                        }
 
-                    if (valueIdx !== -1 && parsed[valueIdx]) {
-                        let rawVal = parsed[valueIdx].replace(/[\$,\(\)\s]/g, '');
-                        let numericVal = parseFloat(rawVal);
-                        if (!isNaN(numericVal) && numericVal > 0) {
-                            let label = parsed[descIdx] || parsed[0] || "Unknown Holding";
-                            let accountName = accountIdx !== -1 ? parsed[accountIdx] : "Brokerage Asset";
+                        if (valueIdx !== -1 && parsed[valueIdx]) {
+                            let rawVal = parsed[valueIdx].replace(/[\$,\(\)\s]/g, '');
+                            let numericVal = parseFloat(rawVal);
                             
-                            if (label.toLowerCase().includes('total') || label.toLowerCase().includes('disclaimer')) continue;
-                            let combinedLabelText = `${accountName} ${label}`.toLowerCase();
-                            let initialPoolSelection = 'bridge'; 
+                            if (!isNaN(numericVal) && numericVal > 0) {
+                                let label = "Unknown Holding";
+                                if (descIdx !== -1 && parsed[descIdx]) label = parsed[descIdx];
+                                else if (parsed[0]) label = parsed[0];
+                                
+                                let accountName = "Brokerage Asset";
+                                if (accountIdx !== -1 && parsed[accountIdx]) accountName = parsed[accountIdx];
+                                
+                                if (label.toLowerCase().includes('total') || label.toLowerCase().includes('disclaimer')) continue;
+                                
+                                let combinedLabelText = `${accountName} ${label}`.toLowerCase();
+                                let initialPoolSelection = 'bridge'; 
 
-                            // Fidelity HSA mapping restored to its own pool
-                            if (combinedLabelText.includes('health savings account') || combinedLabelText.includes('hsa')) {
-                                initialPoolSelection = 'hsa';
-                            } else if (combinedLabelText.includes('ira') || combinedLabelText.includes('401k') || combinedLabelText.includes('403b') || combinedLabelText.includes('roth')) {
-                                initialPoolSelection = 'core';
-                            } else if (combinedLabelText.includes('individual') || combinedLabelText.includes('brokerage')) {
-                                initialPoolSelection = 'bridge';
+                                // Fidelity HSA mapping restored to its own pool
+                                if (combinedLabelText.includes('health savings account') || combinedLabelText.includes('hsa')) {
+                                    initialPoolSelection = 'hsa';
+                                } else if (combinedLabelText.includes('ira') || combinedLabelText.includes('401k') || combinedLabelText.includes('403b') || combinedLabelText.includes('roth')) {
+                                    initialPoolSelection = 'core';
+                                } else if (combinedLabelText.includes('individual') || combinedLabelText.includes('brokerage')) {
+                                    initialPoolSelection = 'bridge';
+                                }
+
+                                ingestedRows.push({ label: `${accountName} - ${label}`, value: numericVal, pool: initialPoolSelection });
                             }
-
-                            ingestedRows.push({ label: `${accountName} - ${label}`, value: numericVal, pool: initialPoolSelection });
                         }
                     }
-                }
 
-                if (ingestedRows.length === 0) {
-                    alert("Unable to map asset balance rows. Please verify this is a standardized positions summary file export.");
-                    return;
+                    if (ingestedRows.length === 0) {
+                        alert("Unable to map asset balance rows. Please verify this is a standardized positions summary file export.");
+                        return;
+                    }
+                    openCSVModal();
+                } catch (err) {
+                    console.error("CSV Parse Error:", err);
+                    alert("An error occurred while reading the CSV. See console for details.");
                 }
-                openCSVModal();
             };
             reader.readAsText(file);
-            input.value = ''; 
         }
 
         function openCSVModal() {
