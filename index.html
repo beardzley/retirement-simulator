@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Planner v.3.4.0</title>
+    <title>Beardzley Retirement Planner v.3.4.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.4.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.4.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -545,8 +545,7 @@
                     let shouldTrackPlotData = (i < 100);
                     let pathInsolvent = false;
 
-                    for (let age = d.startAge; age < d.endAge; age++) {
-                        for (let age = d.startAge; age < d.endAge; age++) {
+                   for (let age = d.startAge; age < d.endAge; age++) {
                         // 1. Generate two independent standard normal variables (Box-Muller)
                         const u1 = Math.random() || 0.0001; // Fallback to avoid log(0)
                         const u2 = Math.random();
@@ -563,9 +562,11 @@
                         const annualReturnCore = d.meanReturnCore + (d.stdDevCore * correlatedZ2);
                         
                         if (age < d.retirementAge) {
-                        
-                        if (age < d.retirementAge) {
-                            currentBridge = (currentBridge + d.savingsTaxable) * (1 + annualReturnBridge);
+                            // Apply a 0.3% annual tax drag to the taxable portfolio
+                            // (Simulates a 15% tax on a standard 2% dividend yield)
+                            const netBridgeReturn = annualReturnBridge - 0.003;
+                            
+                            currentBridge = (currentBridge + d.savingsTaxable) * (1 + netBridgeReturn);
                             currentCore = (currentCore + d.savings401k + d.savingsRoth) * (1 + annualReturnCore);
                             currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
                             currentCash = currentCash * (1 + d.cashYield);
