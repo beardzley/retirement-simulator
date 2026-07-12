@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Planner v.3.5.0</title>
+    <title>Beardzley Retirement Planner v.3.5.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.5.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.5.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -339,6 +339,13 @@
                         </div>
                         <input type="range" id="input-inflation" min="0" max="6" step="0.5" value="2.5" oninput="updateInflation(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
                     </div>
+                    <div class="mt-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Medical Inflation Rate</label>
+                        <span id="label-med-inflation" class="text-sm font-mono font-bold text-red-500">5.0%</span>
+                    </div>
+                    <input type="range" id="input-med-inflation" min="0" max="10" step="0.5" value="5.0" oninput="updateMedInflation(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-600">
+                </div>
                 </div>
             </div>
         </section>
@@ -550,6 +557,8 @@
                     let currentHSA = d.hsaStart || 0;
                     let currentCash = d.cashReserve || 0;
                     let currentSpending = d.spending;
+                    let currentHealthPremium = d.healthPremium;
+                    let currentLtcCost = d.ltcCost;
                     let dynamicBasisRatio = 0.50;
                     let pathCombined = [currentBridge + currentCore + currentHSA + currentCash];
                     let pathBridge = [currentBridge];
@@ -592,8 +601,8 @@
                             }
 
                             let netNeed = currentSpending * phaseMultiplier;
-                            if (age < 65) netNeed += d.healthPremium;
-                            if (age >= 60) netNeed += d.ltcCost;
+                            if (age < 65) netNeed += currentHealthPremium;
+                            if (age >= 60) netNeed += currentLtcCost;
                             if (age >= 67) netNeed = Math.max(0, netNeed - (d.socialSecurity * 12));
 
                             let annualInterest = currentCash * d.cashYield;
@@ -704,6 +713,8 @@
 
                         if (age === 59 && currentBridge <= 0) bridgeSurvivedTo60 = false;
                         currentSpending *= (1 + d.inflationRate);
+                        currentHealthPremium *= (1 + d.medInflationRate);
+                        currentLtcCost *= (1 + d.medInflationRate);
 
                         if (shouldTrackPlotData) {
                             pathCombined.push(currentBridge + currentCore + currentHSA + currentCash);
@@ -733,9 +744,14 @@
                 lifetimeTaxValues.sort((a, b) => a - b);
                 
                 // Safely calculate Withdrawal Rate using projected values mapped to the worker payload
-                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve);
-                let firstYearSpend = d.spending + (d.retirementAge < 65 ? d.healthPremium : 0);
-                let wRate = ((firstYearSpend / medianRetAssets) * 100).toFixed(1);
+                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] ||
+                (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve);
+                
+                let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
+                let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
+                let inflatedHealthSpend = (d.retirementAge < 65) ? (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
+                
+                let wRate = (((inflatedBaseSpend + inflatedHealthSpend) / medianRetAssets) * 100).toFixed(1);
 
                 self.postMessage({
                     successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
@@ -770,7 +786,7 @@
         let savingsTaxable = 0, savings401k = 0, savingsRoth = 0, savingsHSA = 0;
         let spending = 90000, bridgeCapital = 0, coreCapital = 0, hsaStart = 0, cashReserve = 0;
         let meanReturnBridge = 0.095, stdDevBridge = 0.18, meanReturnCore = 0.075, stdDevCore = 0.12;
-        let cashYield = 0.0329, inflationRate = 0.025;
+        let cashYield = 0.0329, inflationRate = 0.025, medInflationRate = 0.05;
         let healthPremium = 10000, socialSecurity = 2500, ltcCost = 3000, stateTaxRate = 0;
         let rule5515 = false, dynamicSpending = true;
         
@@ -795,7 +811,7 @@
         function runMonteCarloSimulation() {
             document.getElementById('processing-indicator').classList.remove('hidden');
             syncNetWorthSummaryPanel();
-            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
+            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
             if (!simWorker) initWorker();
             simWorker.postMessage(simulationConfig);
         }
@@ -1175,7 +1191,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
 
         function saveCurrentAsBaseline() {
-            const state = { startAge, retirementAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
+            const state = { startAge, retirementAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
             savedBaseline = state; safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
             showNotification("Your structural configuration baseline is locked!"); updateBaselineButtons();
         }
@@ -1188,7 +1204,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function applyState(s) {
             startAge = s.startAge; retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending;
             bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; hsaStart = s.hsaStart || 0; cashReserve = s.cashReserve || 0; meanReturnBridge = s.meanReturnBridge || 0.095; stdDevBridge = s.stdDevBridge || 0.18; meanReturnCore = s.meanReturnCore || 0.075; stdDevCore = s.stdDevCore || 0.12; cashYield = s.cashYield || 0.0329; inflationRate = s.inflationRate;
-            healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost; stateTaxRate = s.stateTaxRate || 0; rule5515 = s.rule5515 || false;
+            healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost; stateTaxRate = s.stateTaxRate || 0; medInflationRate = s.medInflationRate || 0.05; rule5515 = s.rule5515 || false;
             document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
             document.getElementById('input-savings-taxable').value = savingsTaxable; document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('input-savings-hsa').value = savingsHSA;
             document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('input-core').value = coreCapital; document.getElementById('input-hsa-start').value = hsaStart;
@@ -1199,6 +1215,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             document.getElementById('input-cash-yield').value = (cashYield*100).toFixed(2); document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
             document.getElementById('input-health').value = healthPremium; document.getElementById('input-ss').value = socialSecurity; document.getElementById('input-ltc').value = ltcCost;
             if(document.getElementById('input-state-tax')) { document.getElementById('input-state-tax').value = (stateTaxRate*100).toFixed(1); document.getElementById('label-state-tax').textContent = `${(stateTaxRate*100).toFixed(1)}%`; }
+            if(document.getElementById('input-med-inflation')) { document.getElementById('input-med-inflation').value = (medInflationRate*100).toFixed(1); document.getElementById('label-med-inflation').textContent = `${(medInflationRate*100).toFixed(1)}%`; }
             document.getElementById('toggle-5515').checked = rule5515; document.getElementById('toggle-dynamic-spend').checked = dynamicSpending;
             updateLabelElements(); 
             setRetirementAge(retirementAge);
@@ -1255,6 +1272,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; runMonteCarloSimulation(); }
         function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; runMonteCarloSimulation();}
         function updateStateTax(v) { stateTaxRate = parseFloat(v)/100; document.getElementById('label-state-tax').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation();}
+        function updateMedInflation(v) { medInflationRate = parseFloat(v)/100; document.getElementById('label-med-inflation').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation();}
         function updateSpending(v) { spending = parseInt(v); document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateBridge(v) { bridgeCapital = parseInt(v); document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateCore(v) { coreCapital = parseInt(v); document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`; runMonteCarloSimulation(); }
