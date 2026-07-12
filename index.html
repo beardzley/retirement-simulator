@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.0.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.0.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Multi-threaded asynchronous processing with integrated progressive tax logic</p>
         </div>
@@ -60,9 +60,10 @@
             </div>
             <div class="p-5 overflow-y-auto space-y-3 flex-1" id="csv-rows-container"></div>
             <div class="p-4 border-t border-slate-800 bg-slate-950/40 flex justify-between items-center text-xs">
-                <div class="flex gap-4">
+               <div class="flex gap-4">
                     <div>Bridge Delta: <span id="modal-bridge-total" class="font-mono font-bold text-emerald-400">$0</span></div>
                     <div>Core Delta: <span id="modal-core-total" class="font-mono font-bold text-cyan-400">$0</span></div>
+                    <div>HSA Delta: <span id="modal-hsa-total" class="font-mono font-bold text-purple-400">$0</span></div>
                 </div>
                 <button onclick="applyIngestedBalances()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-lg transition-all">
                     Apply Portfolio Injection
@@ -806,8 +807,10 @@
                             let combinedLabelText = `${accountName} ${label}`.toLowerCase();
                             let initialPoolSelection = 'bridge'; 
 
-                            // Fidelity HSA / Core mapping fix
-                            if (combinedLabelText.includes('hsa') || combinedLabelText.includes('health savings') || combinedLabelText.includes('ira') || combinedLabelText.includes('401k') || combinedLabelText.includes('403b') || combinedLabelText.includes('roth')) {
+                            // Fidelity HSA mapping restored to its own pool
+                            if (combinedLabelText.includes('health savings account') || combinedLabelText.includes('hsa')) {
+                                initialPoolSelection = 'hsa';
+                            } else if (combinedLabelText.includes('ira') || combinedLabelText.includes('401k') || combinedLabelText.includes('403b') || combinedLabelText.includes('roth')) {
                                 initialPoolSelection = 'core';
                             } else if (combinedLabelText.includes('individual') || combinedLabelText.includes('brokerage')) {
                                 initialPoolSelection = 'bridge';
@@ -832,12 +835,13 @@
             const container = document.getElementById('csv-rows-container');
             container.innerHTML = '';
             
-            ingestedRows.forEach((row, idx) => {
+           ingestedRows.forEach((row, idx) => {
                 const item = document.createElement('div');
                 item.className = "flex justify-between items-center bg-slate-950/40 border border-slate-800 p-3 rounded-xl gap-4";
                 
                 const bridgeClass = row.pool === 'bridge' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white";
                 const coreClass = row.pool === 'core' ? "bg-cyan-600 text-white shadow" : "text-slate-400 hover:text-white";
+                const hsaClass = row.pool === 'hsa' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white";
 
                 item.innerHTML = `
                     <div class="truncate max-w-[60%]">
@@ -847,6 +851,7 @@
                     <div class="flex gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
                         <button onclick="toggleRowPool(${idx}, 'bridge')" id="modal-btn-bridge-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${bridgeClass}">Bridge</button>
                         <button onclick="toggleRowPool(${idx}, 'core')" id="modal-btn-core-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${coreClass}">Core</button>
+                        <button onclick="toggleRowPool(${idx}, 'hsa')" id="modal-btn-hsa-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${hsaClass}">HSA</button>
                     </div>
                 `;
                 container.appendChild(item);
@@ -860,21 +865,25 @@
             ingestedRows[idx].pool = targetPool;
             const bBtn = document.getElementById(`modal-btn-bridge-${idx}`);
             const cBtn = document.getElementById(`modal-btn-core-${idx}`);
+            const hBtn = document.getElementById(`modal-btn-hsa-${idx}`);
             
             bBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'bridge' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white");
             cBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'core' ? "bg-cyan-600 text-white shadow" : "text-slate-400 hover:text-white");
+            hBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'hsa' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white");
 
             recalculateModalTotals();
         }
 
         function recalculateModalTotals() {
-            let bTot = 0, cTot = 0;
+            let bTot = 0, cTot = 0, hTot = 0;
             ingestedRows.forEach(r => { 
                 if (r.pool === 'bridge') bTot += r.value; 
                 else if (r.pool === 'core') cTot += r.value; 
+                else if (r.pool === 'hsa') hTot += r.value;
             });
             document.getElementById('modal-bridge-total').textContent = `$${Math.round(bTot).toLocaleString()}`;
             document.getElementById('modal-core-total').textContent = `$${Math.round(cTot).toLocaleString()}`;
+            document.getElementById('modal-hsa-total').textContent = `$${Math.round(hTot).toLocaleString()}`;
         }
 
         function applyIngestedBalances() {
@@ -882,21 +891,27 @@
             ingestedRows.forEach(r => { 
                 if (r.pool === 'bridge') finalBridge += r.value; 
                 else if (r.pool === 'core') finalCore += r.value; 
+                else if (r.pool === 'hsa') finalHSA += r.value; 
             });
             
             if (finalBridge > 2000000) document.getElementById('input-bridge').max = Math.ceil(finalBridge * 1.2);
             if (finalCore > 2000000) document.getElementById('input-core').max = Math.ceil(finalCore * 1.2);
+            if (finalHSA > 500000) document.getElementById('input-hsa-start').max = Math.ceil(finalHSA * 1.2);
             
             bridgeCapital = Math.round(finalBridge);
             coreCapital = Math.round(finalCore);
+            hsaStart = Math.round(finalHSA);
             
             document.getElementById('input-bridge').value = bridgeCapital;
             document.getElementById('input-core').value = coreCapital;
+            document.getElementById('input-hsa-start').value = hsaStart;
+            
             document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
             document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
+            document.getElementById('label-hsa-start').textContent = `$${hsaStart.toLocaleString()}`;
 
             closeCSVModal();
-            showNotification("Brokerage portfolio statement assets imported successfully!");
+            showNotification("Portfolio statement assets imported successfully!");
             runMonteCarloSimulation();
         }
 
