@@ -891,7 +891,7 @@
             }
         }
 
-        function renderChartData() {
+function renderChartData() {
             const ctx = document.getElementById('monteCarloChart').getContext('2d');
             let selectedPaths = globalPlotData[activeTab];
             if (!selectedPaths || selectedPaths.length === 0) return;
@@ -902,6 +902,7 @@
             let datasetLabel = activeTab === 'combined' ? 'Combined Net Worth' : activeTab === 'bridge' ? 'Bridge Portfolio' : 'Core Portfolio';
             let borderColor = activeTab === 'combined' ? 'rgba(16, 185, 129, 0.2)' : activeTab === 'bridge' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(147, 51, 234, 0.2)';
             let accentColor = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : '#9333ea';
+            
             const chartDatasets = selectedPaths.map((path, idx) => ({
                 label: idx === 0 ? datasetLabel : '',
                 data: path,
@@ -911,6 +912,7 @@
                 fill: false,
                 tension: 0.1
             }));
+            
             const sortedIdx = selectedPaths.map((p, i) => ({ index: i, val: p[p.length - 1] })).sort((a,b) => a.val - b.val);
             const medIdx = sortedIdx[Math.floor(sortedIdx.length / 2)].index;
             chartDatasets[medIdx].borderColor = accentColor;
@@ -924,15 +926,45 @@
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: true, labels: { filter: (item) => item.text === 'Median Cluster Baseline' || item.text === datasetLabel, color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
+                        legend: { 
+                            display: true, 
+                            labels: { filter: (item) => item.text === 'Median Cluster Baseline' || item.text === datasetLabel, color: '#94a3b8', font: { family: 'Inter', size: 11 } } 
+                        },
                         tooltip: {
                             mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
-                            callbacks: { label: (context) => context.dataset.borderWidth > 2 || context.datasetIndex === 0 ? `${context.dataset.label || 'Path'}: $${Math.round(context.raw).toLocaleString()}` : null }
+                            callbacks: { 
+                                label: (context) => {
+                                    // Keep your existing logic to only show tooltips for the median or the main path
+                                    if (!(context.dataset.borderWidth > 2 || context.datasetIndex === 0)) return null;
+                                    
+                                    let val = context.raw;
+                                    // Cap the displayed tooltip text at $10M
+                                    let displayVal = val >= 10000000 ? '>$10M' : '$' + Math.round(val).toLocaleString();
+                                    return `${context.dataset.label || 'Path'}: ${displayVal}`;
+                                } 
+                            }
                         }
                     },
                     scales: {
-                        x: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
-                        y: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => val >= 1000000 ? '$' + (val / 1000000).toFixed(1) + 'M' : val >= 1000 ? '$' + (val / 1000).toFixed(0) + 'k' : '$' + val } }
+                        x: { 
+                            grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
+                            ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } 
+                        },
+                        y: { 
+                            max: 10000000, // <--- Hard Cap applied here
+                            grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
+                            ticks: { 
+                                color: '#64748b', 
+                                font: { size: 10 }, 
+                                callback: (val) => {
+                                    // Capped UI Labels
+                                    if (val >= 10000000) return '$10M+';
+                                    if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
+                                    if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'k';
+                                    return '$' + val;
+                                } 
+                            } 
+                        }
                     }
                 }
             });
