@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Planner v.5.0.0</title>
+    <title>Beardzley Retirement Planner v.5.1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.5.0.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.5.1.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -479,13 +479,16 @@
                 let bridgeSuccessCount = 0;
                 let savedBy5515Count = 0;
                 
-                let allPaths = new Array(iterations);
-                
                 let terminalCombinedValues = [];
                 let retirementCombinedValues = [];
                 let retirementBridgeValues = [];
                 let retirementCoreValues = [];
                 let lifetimeTaxValues = [];
+
+                let yearsCount = d.endAge - d.startAge + 1;
+                let yearlyCombined = Array.from({length: yearsCount}, () => new Float32Array(iterations));
+                let yearlyBridge = Array.from({length: yearsCount}, () => new Float32Array(iterations));
+                let yearlyCore = Array.from({length: yearsCount}, () => new Float32Array(iterations));
 
                 function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, age) {
                     let inflMult = Math.pow(1 + d.inflationRate, age - d.startAge);
@@ -562,13 +565,14 @@
                     let currentLtcCost = d.ltcCost;
                     
                     let dynamicBasisRatio = 0.50;
-                    
-                    let pathCombined = [currentBridge + currentCore + currentHSA + currentCash];
-                    let pathBridge = [currentBridge];
-                    let pathCore = [currentCore];
-                    
                     let bridgeSurvivedTo60 = true;
                     let pathInsolvent = false;
+                    
+                    let yearIdx = 0;
+                    yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash;
+                    yearlyBridge[yearIdx][i] = currentBridge;
+                    yearlyCore[yearIdx][i] = currentCore;
+                    yearIdx++;
                     
                     for (let age = d.startAge; age < d.endAge; age++) {
                         const u1 = Math.random() || 0.0001; const u2 = Math.random();
@@ -694,11 +698,11 @@
                                 currentHSA = 0;
                                 currentCash = 0;
                                 
-                                // Cleanly pad out the failure flatline visually
                                 for (let padAge = age; padAge < d.endAge; padAge++) {
-                                    pathCombined.push(0);
-                                    pathBridge.push(0);
-                                    pathCore.push(0);
+                                    yearlyCombined[yearIdx][i] = 0;
+                                    yearlyBridge[yearIdx][i] = 0;
+                                    yearlyCore[yearIdx][i] = 0;
+                                    yearIdx++;
                                 }
                                 break;
                             }
@@ -738,9 +742,10 @@
                         currentHealthPremium *= (1 + d.medInflationRate);
                         currentLtcCost *= (1 + d.medInflationRate);
                         
-                        pathCombined.push(currentBridge + currentCore + currentHSA + currentCash);
-                        pathBridge.push(currentBridge);
-                        pathCore.push(currentCore);
+                        yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash;
+                        yearlyBridge[yearIdx][i] = currentBridge;
+                        yearlyCore[yearIdx][i] = currentCore;
+                        yearIdx++;
                     }
                     
                     lifetimeTaxValues.push(runLifetimeTax);
@@ -752,20 +757,29 @@
                     }
                     
                     terminalCombinedValues.push(currentBridge + currentCore + currentHSA + currentCash);
-                    
-                    allPaths[i] = {
-                        finalVal: currentBridge + currentCore + currentHSA + currentCash,
-                        combined: pathCombined,
-                        bridge: pathBridge,
-                        core: pathCore
-                    };
                 }
 
-                allPaths.sort((a, b) => a.finalVal - b.finalVal);
-                
-                const p10Path = allPaths[Math.floor(iterations * 0.10)];
-                const p25Path = allPaths[Math.floor(iterations * 0.25)];
-                const p50Path = allPaths[Math.floor(iterations * 0.50)];
+                let p10Combined = [], p25Combined = [], p50Combined = [];
+                let p10Bridge = [], p25Bridge = [], p50Bridge = [];
+                let p10Core = [], p25Core = [], p50Core = [];
+
+                for (let y = 0; y < yearsCount; y++) {
+                    let yearComb = yearlyCombined[y]; yearComb.sort();
+                    let yearBrid = yearlyBridge[y]; yearBrid.sort();
+                    let yearCor = yearlyCore[y]; yearCor.sort();
+
+                    p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
+                    p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
+                    p50Combined.push(yearComb[Math.floor(iterations * 0.50)]);
+
+                    p10Bridge.push(yearBrid[Math.floor(iterations * 0.10)]);
+                    p25Bridge.push(yearBrid[Math.floor(iterations * 0.25)]);
+                    p50Bridge.push(yearBrid[Math.floor(iterations * 0.50)]);
+
+                    p10Core.push(yearCor[Math.floor(iterations * 0.10)]);
+                    p25Core.push(yearCor[Math.floor(iterations * 0.25)]);
+                    p50Core.push(yearCor[Math.floor(iterations * 0.50)]);
+                }
 
                 terminalCombinedValues.sort((a, b) => a - b);
                 retirementCombinedValues.sort((a, b) => a - b);
@@ -797,9 +811,9 @@
                     p95: terminalCombinedValues[Math.floor(iterations * 0.95)],
                     
                     withdrawalRate: wRate,
-                    plotCombined: [p10Path.combined, p25Path.combined, p50Path.combined], 
-                    plotBridge: [p10Path.bridge, p25Path.bridge, p50Path.bridge], 
-                    plotCore: [p10Path.core, p25Path.core, p50Path.core]
+                    plotCombined: [p10Combined, p25Combined, p50Combined], 
+                    plotBridge: [p10Bridge, p25Bridge, p50Bridge], 
+                    plotCore: [p10Core, p25Core, p50Core]
                 });
             };
         `;
@@ -1101,17 +1115,16 @@
 
             let accentColor = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : '#9333ea';
             
-            // Fidelity style distinct visual hierarchy
             const borderColors = [
-                '#ef4444', // Red-500 for worst case
-                '#f59e0b', // Amber-500 for below average
-                accentColor // Tab-specific accent for median baseline
+                '#ef4444', 
+                '#f59e0b', 
+                accentColor 
             ];
             
             const borderDash = [
-                [4, 4], // Dashed line
-                [2, 2], // Dotted line
-                []      // Solid line
+                [4, 4], 
+                [2, 2], 
+                []      
             ];
             
             const chartDatasets = selectedPaths.map((path, idx) => ({
