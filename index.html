@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Planner v.4.0.1</title>
+    <title>Beardzley Retirement Planner v.5.0.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.4.0.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.5.0.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -402,7 +402,7 @@
                             <button onclick="switchChartTab('core')" id="tab-core" class="px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white">Core Accounts Only</button>
                         </div>
                         <span class="text-xs text-slate-500 flex items-center gap-1 font-semibold">
-                            <span class="material-icons text-xs">visibility_off</span> Plot Render Capped at $10M
+                            <span class="material-icons text-xs">visibility</span> Fidelity Scenario Modeling Applied
                         </span>
                     </div>
 
@@ -479,15 +479,13 @@
                 let bridgeSuccessCount = 0;
                 let savedBy5515Count = 0;
                 
+                let allPaths = new Array(iterations);
+                
                 let terminalCombinedValues = [];
                 let retirementCombinedValues = [];
                 let retirementBridgeValues = [];
                 let retirementCoreValues = [];
                 let lifetimeTaxValues = [];
-                
-                let plotCombined = [];
-                let plotBridge = [];
-                let plotCore = [];
 
                 function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, age) {
                     let inflMult = Math.pow(1 + d.inflationRate, age - d.startAge);
@@ -546,7 +544,6 @@
                         }
                     }
                     
-                    // State Tax Abstraction
                     let grossStateIncome = preTaxWithdrawn + cashInterest + realizedGains;
                     let stateTax = grossStateIncome * (d.stateTaxRate || 0);
 
@@ -571,16 +568,13 @@
                     let pathCore = [currentCore];
                     
                     let bridgeSurvivedTo60 = true;
-                    let shouldTrackPlotData = (i < 100);
                     let pathInsolvent = false;
                     
                     for (let age = d.startAge; age < d.endAge; age++) {
-                        // 1. Generate standard normal variables for base returns
                         const u1 = Math.random() || 0.0001; const u2 = Math.random();
                         const z1 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(TWO_PI * u2);
                         const z2 = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(TWO_PI * u2);
 
-                        // 2. Generate normal variables for the fat-tail Chi-Square distribution (df=4)
                         const u3 = Math.random() || 0.0001; const u4 = Math.random();
                         const z3 = Math.sqrt(-2.0 * Math.log(u3)) * Math.cos(TWO_PI * u4);
                         const z4 = Math.sqrt(-2.0 * Math.log(u3)) * Math.sin(TWO_PI * u4);
@@ -589,28 +583,21 @@
                         const z5 = Math.sqrt(-2.0 * Math.log(u5)) * Math.cos(TWO_PI * u6);
                         const z6 = Math.sqrt(-2.0 * Math.log(u5)) * Math.sin(TWO_PI * u6);
 
-                        // Calculate Chi-Square variable (4 degrees of freedom)
                         const chiSq4 = (z3*z3) + (z4*z4) + (z5*z5) + (z6*z6);
-                        
-                        // 3. Apply Student's T-transformation (Fat Tails)
-                        // SAFE FIX: Math.max prevents catastrophic division by zero if chiSq4 gets microscopic
                         const safeChiSq4 = Math.max(chiSq4, 0.0001);
                         const fatTailMultiplier = 1 / Math.sqrt(safeChiSq4 / 4) / Math.sqrt(2);
                         
                         const t1 = z1 * fatTailMultiplier;
                         const t2 = z2 * fatTailMultiplier;
 
-                        // 4. Apply 85% equity correlation to the fat-tailed variables
                         const rho = 0.85;
                         const correlatedT1 = t1;
                         const correlatedT2 = (rho * t1) + (Math.sqrt(1 - Math.pow(rho, 2)) * t2);
 
-                        // 5. Scale by the portfolio's specific UI slider variables
                         const annualReturnBridge = d.meanReturnBridge + (d.stdDevBridge * correlatedT1);
                         const annualReturnCore = d.meanReturnCore + (d.stdDevCore * correlatedT2);
                         
                         if (age < d.retirementAge) {
-                            // Apply a 0.3% annual tax drag to the taxable portfolio
                             const netBridgeReturn = annualReturnBridge - 0.003;
                             
                             currentBridge = (currentBridge + d.savingsTaxable) * (1 + netBridgeReturn);
@@ -706,6 +693,13 @@
                                 currentCore = 0; 
                                 currentHSA = 0;
                                 currentCash = 0;
+                                
+                                // Cleanly pad out the failure flatline visually
+                                for (let padAge = age; padAge < d.endAge; padAge++) {
+                                    pathCombined.push(0);
+                                    pathBridge.push(0);
+                                    pathCore.push(0);
+                                }
                                 break;
                             }
 
@@ -744,11 +738,9 @@
                         currentHealthPremium *= (1 + d.medInflationRate);
                         currentLtcCost *= (1 + d.medInflationRate);
                         
-                        if (shouldTrackPlotData) {
-                            pathCombined.push(currentBridge + currentCore + currentHSA + currentCash);
-                            pathBridge.push(currentBridge);
-                            pathCore.push(currentCore);
-                        }
+                        pathCombined.push(currentBridge + currentCore + currentHSA + currentCash);
+                        pathBridge.push(currentBridge);
+                        pathCore.push(currentCore);
                     }
                     
                     lifetimeTaxValues.push(runLifetimeTax);
@@ -761,12 +753,19 @@
                     
                     terminalCombinedValues.push(currentBridge + currentCore + currentHSA + currentCash);
                     
-                    if (shouldTrackPlotData) {
-                        plotCombined.push(pathCombined);
-                        plotBridge.push(pathBridge);
-                        plotCore.push(pathCore);
-                    }
+                    allPaths[i] = {
+                        finalVal: currentBridge + currentCore + currentHSA + currentCash,
+                        combined: pathCombined,
+                        bridge: pathBridge,
+                        core: pathCore
+                    };
                 }
+
+                allPaths.sort((a, b) => a.finalVal - b.finalVal);
+                
+                const p10Path = allPaths[Math.floor(iterations * 0.10)];
+                const p25Path = allPaths[Math.floor(iterations * 0.25)];
+                const p50Path = allPaths[Math.floor(iterations * 0.50)];
 
                 terminalCombinedValues.sort((a, b) => a - b);
                 retirementCombinedValues.sort((a, b) => a - b);
@@ -774,7 +773,6 @@
                 retirementCoreValues.sort((a, b) => a - b);
                 lifetimeTaxValues.sort((a, b) => a - b);
                 
-                // Safely calculate Withdrawal Rate using projected values mapped to the worker payload
                 let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve);
                 
                 let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
@@ -799,7 +797,9 @@
                     p95: terminalCombinedValues[Math.floor(iterations * 0.95)],
                     
                     withdrawalRate: wRate,
-                    plotCombined, plotBridge, plotCore
+                    plotCombined: [p10Path.combined, p25Path.combined, p50Path.combined], 
+                    plotBridge: [p10Path.bridge, p25Path.bridge, p50Path.bridge], 
+                    plotCore: [p10Path.core, p25Path.core, p50Path.core]
                 });
             };
         `;
@@ -840,7 +840,6 @@
             document.getElementById('processing-indicator').classList.remove('hidden');
             syncNetWorthSummaryPanel();
             
-            // The magic debounce layer - protects the UI and Worker from flood crashing
             if (simTimeout) clearTimeout(simTimeout);
             
             simTimeout = setTimeout(() => {
@@ -1094,27 +1093,38 @@
             let timeline = [];
             for (let a = startAge; a <= endAge; a++) timeline.push(a);
 
-            let datasetLabel = activeTab === 'combined' ? 'Combined Net Worth' : activeTab === 'bridge' ? 'Bridge Portfolio' : 'Core Portfolio';
-            let borderColor = activeTab === 'combined' ? 'rgba(16, 185, 129, 0.2)' : activeTab === 'bridge' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(147, 51, 234, 0.2)';
+            const pathLabels = [
+                "Significantly Below Market (10th Percentile)",
+                "Below Average Market (25th Percentile)",
+                "Average Market (Median)"
+            ];
+
             let accentColor = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : '#9333ea';
             
+            // Fidelity style distinct visual hierarchy
+            const borderColors = [
+                '#ef4444', // Red-500 for worst case
+                '#f59e0b', // Amber-500 for below average
+                accentColor // Tab-specific accent for median baseline
+            ];
+            
+            const borderDash = [
+                [4, 4], // Dashed line
+                [2, 2], // Dotted line
+                []      // Solid line
+            ];
+            
             const chartDatasets = selectedPaths.map((path, idx) => ({
-                label: idx === 0 ? datasetLabel : '',
+                label: pathLabels[idx],
                 data: path,
-                borderColor: borderColor,
-                borderWidth: 1.0,
+                borderColor: borderColors[idx],
+                borderWidth: idx === 2 ? 3 : 2,
+                borderDash: borderDash[idx],
                 pointRadius: 0,
                 fill: false,
                 tension: 0.1
             }));
             
-            const sortedIdx = selectedPaths.map((p, i) => ({ index: i, val: p[p.length - 1] })).sort((a,b) => a.val - b.val);
-            const medIdx = sortedIdx[Math.floor(sortedIdx.length / 2)].index;
-            chartDatasets[medIdx].borderColor = accentColor;
-            chartDatasets[medIdx].borderWidth = 3.5;
-            chartDatasets[medIdx].label = 'Median Cluster Baseline';
-
-            // Maintained destroy mechanism for perfect dataset garbage collection safety
             if (chartInstance) chartInstance.destroy();
             chartInstance = new Chart(ctx, {
                 type: 'line',
@@ -1124,16 +1134,15 @@
                     plugins: {
                         legend: { 
                             display: true, 
-                            labels: { filter: (item) => item.text === 'Median Cluster Baseline' || item.text === datasetLabel, color: '#94a3b8', font: { family: 'Inter', size: 11 } } 
+                            labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } 
                         },
                         tooltip: {
                             mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
                             callbacks: { 
                                 label: (context) => {
-                                    if (!(context.dataset.borderWidth > 2 || context.datasetIndex === 0)) return null;
                                     let val = context.raw;
                                     let displayVal = val >= 10000000 ? '>$10M' : '$' + Math.round(val).toLocaleString();
-                                    return `${context.dataset.label || 'Path'}: ${displayVal}`;
+                                    return `${context.dataset.label}: ${displayVal}`;
                                 } 
                             }
                         }
