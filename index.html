@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Planner v.3.0.1</title>
+    <title>Beardzley Retirement Planner v.3.1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,9 +26,9 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.0.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.1.0</h1>
             </div>
-            <p class="text-xs text-slate-400 mt-1">Multi-threaded asynchronous processing with integrated progressive tax logic</p>
+            <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
             <label class="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-amber-400 px-3 py-2 rounded-lg transition-all border border-slate-700 cursor-pointer active:scale-95 font-semibold shadow-md">
@@ -370,13 +370,12 @@
 
                     <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
                         <div>
-                            <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Statistical Iterations</p>
-                            <h3 class="text-3xl font-extrabold tracking-tight text-cyan-400 mt-1">10,000</h3>
-                            <p class="text-[10px] text-slate-500 mt-1">Confidence Interval Margin: &plusmn;0.9%</p>
+                            <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Initial Withdrawal Rate</p>
+                            <h3 id="stat-withdrawal-rate" class="text-3xl font-extrabold tracking-tight text-cyan-400 mt-1">0.0%</h3>
+                            <p class="text-[10px] text-slate-500 mt-1">First year % of total portfolio</p>
                         </div>
-                        <span class="p-3 bg-cyan-500/10 rounded-xl text-cyan-400"><span class="material-icons">equalizer</span></span>
+                        <span class="p-3 bg-cyan-500/10 rounded-xl text-cyan-400"><span class="material-icons">percent</span></span>
                     </div>
-                </div>
 
                 <div class="bg-slate-950/40 border border-slate-800 rounded-3xl p-6 flex-1 flex flex-col min-h-[400px]">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-800/80 pb-4">
@@ -716,6 +715,10 @@
                     p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
                     p75: terminalCombinedValues[Math.floor(iterations * 0.75)],
                     p95: terminalCombinedValues[Math.floor(iterations * 0.95)],
+                    
+                    // Calculate IWR based on starting portfolio and first year of retirement spending
+                    // We look at the first year spending required vs total assets
+                    withdrawalRate: ((d.spending + d.healthPremium) / (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve) * 100).toFixed(1),
 
                     plotCombined, plotBridge, plotCore
                 });
@@ -921,6 +924,12 @@
             document.getElementById('panel-projected-net-worth').textContent = `$${Math.round(res.medianRetNW).toLocaleString()}`;
             document.getElementById('panel-proj-bridge-val').textContent = `$${Math.round(res.medianRetBridge).toLocaleString()}`;
             document.getElementById('panel-proj-core-val').textContent = `$${Math.round(res.medianRetCore).toLocaleString()}`;
+            document.getElementById('stat-withdrawal-rate').textContent = `${res.withdrawalRate}%`;
+            
+            // Add a color-coding logic to indicate safety
+            const iwrEl = document.getElementById('stat-withdrawal-rate');
+            const iwrVal = parseFloat(res.withdrawalRate);
+            iwrEl.className = `text-3xl font-extrabold tracking-tight mt-1 ${iwrVal > 5 ? 'text-red-400' : iwrVal > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
             
             const sRate = document.getElementById('stat-success-rate');
             sRate.textContent = `${res.successRate}%`;
