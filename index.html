@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Planner v.3.5.1</title>
+    <title>Beardzley Retirement Planner v.4.0.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.5.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.4.0.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -392,6 +392,7 @@
                         </div>
                         <span class="p-3 bg-cyan-500/10 rounded-xl text-cyan-400"><span class="material-icons">percent</span></span>
                     </div>
+                </div>
 
                 <div class="bg-slate-950/40 border border-slate-800 rounded-3xl p-6 flex-1 flex flex-col min-h-[400px]">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-800/80 pb-4">
@@ -472,10 +473,12 @@
             self.onmessage = function(e) {
                 const d = e.data;
                 const iterations = 10000;
+                const TWO_PI = 2.0 * Math.PI;
                 
                 let lifetimeSuccessCount = 0;
                 let bridgeSuccessCount = 0;
                 let savedBy5515Count = 0;
+                
                 let terminalCombinedValues = [];
                 let retirementCombinedValues = [];
                 let retirementBridgeValues = [];
@@ -556,10 +559,13 @@
                     let currentCore = d.coreCapital;
                     let currentHSA = d.hsaStart || 0;
                     let currentCash = d.cashReserve || 0;
+                    
                     let currentSpending = d.spending;
                     let currentHealthPremium = d.healthPremium;
                     let currentLtcCost = d.ltcCost;
+                    
                     let dynamicBasisRatio = 0.50;
+                    
                     let pathCombined = [currentBridge + currentCore + currentHSA + currentCash];
                     let pathBridge = [currentBridge];
                     let pathCore = [currentCore];
@@ -567,26 +573,44 @@
                     let bridgeSurvivedTo60 = true;
                     let shouldTrackPlotData = (i < 100);
                     let pathInsolvent = false;
+                    
+                    for (let age = d.startAge; age < d.endAge; age++) {
+                        // 1. Generate standard normal variables for base returns
+                        const u1 = Math.random() || 0.0001; const u2 = Math.random();
+                        const z1 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(TWO_PI * u2);
+                        const z2 = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(TWO_PI * u2);
 
-                   for (let age = d.startAge; age < d.endAge; age++) {
-                        // 1. Generate two independent standard normal variables (Box-Muller)
-                        const u1 = Math.random() || 0.0001; // Fallback to avoid log(0)
-                        const u2 = Math.random();
-                        const z1 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-                        const z2 = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(2.0 * Math.PI * u2);
+                        // 2. Generate normal variables for the fat-tail Chi-Square distribution (df=4)
+                        const u3 = Math.random() || 0.0001; const u4 = Math.random();
+                        const z3 = Math.sqrt(-2.0 * Math.log(u3)) * Math.cos(TWO_PI * u4);
+                        const z4 = Math.sqrt(-2.0 * Math.log(u3)) * Math.sin(TWO_PI * u4);
+                        
+                        const u5 = Math.random() || 0.0001; const u6 = Math.random();
+                        const z5 = Math.sqrt(-2.0 * Math.log(u5)) * Math.cos(TWO_PI * u6);
+                        const z6 = Math.sqrt(-2.0 * Math.log(u5)) * Math.sin(TWO_PI * u6);
 
-                        // 2. Apply a realistic equity correlation coefficient (85%)
-                        const rho = 0.85; 
-                        const correlatedZ1 = z1;
-                        const correlatedZ2 = (rho * z1) + (Math.sqrt(1 - Math.pow(rho, 2)) * z2);
+                        // Calculate Chi-Square variable (4 degrees of freedom)
+                        const chiSq4 = (z3*z3) + (z4*z4) + (z5*z5) + (z6*z6);
+                        
+                        // 3. Apply Student's T-transformation (Fat Tails)
+                        // SAFE FIX: Math.max prevents catastrophic division by zero if chiSq4 gets microscopic
+                        const safeChiSq4 = Math.max(chiSq4, 0.0001);
+                        const fatTailMultiplier = 1 / Math.sqrt(safeChiSq4 / 4) / Math.sqrt(2);
+                        
+                        const t1 = z1 * fatTailMultiplier;
+                        const t2 = z2 * fatTailMultiplier;
 
-                        // 3. Scale by the portfolio's specific slider variables
-                        const annualReturnBridge = d.meanReturnBridge + (d.stdDevBridge * correlatedZ1);
-                        const annualReturnCore = d.meanReturnCore + (d.stdDevCore * correlatedZ2);
+                        // 4. Apply 85% equity correlation to the fat-tailed variables
+                        const rho = 0.85;
+                        const correlatedT1 = t1;
+                        const correlatedT2 = (rho * t1) + (Math.sqrt(1 - Math.pow(rho, 2)) * t2);
+
+                        // 5. Scale by the portfolio's specific UI slider variables
+                        const annualReturnBridge = d.meanReturnBridge + (d.stdDevBridge * correlatedT1);
+                        const annualReturnCore = d.meanReturnCore + (d.stdDevCore * correlatedT2);
                         
                         if (age < d.retirementAge) {
                             // Apply a 0.3% annual tax drag to the taxable portfolio
-                            // (Simulates a 15% tax on a standard 2% dividend yield)
                             const netBridgeReturn = annualReturnBridge - 0.003;
                             
                             currentBridge = (currentBridge + d.savingsTaxable) * (1 + netBridgeReturn);
@@ -634,7 +658,7 @@
                                 corePull = rmdAmount;
                                 let coreSatisfied = Math.min(remGross, corePull);
                                 remGross -= coreSatisfied;
-                                
+
                                 brokeragePull = Math.min(remGross, currentBridge);
                                 remGross -= brokeragePull;
 
@@ -665,6 +689,7 @@
                                 }
 
                                 let actualTax = calculateAnnualTax(corePull + hsaPull, brokeragePull, dynamicBasisRatio, annualInterest, age) + corePenalty;
+                                
                                 if (Math.abs(actualTax - estimatedTax) < 1) {
                                     estimatedTax = actualTax;
                                     converged = true;
@@ -673,7 +698,9 @@
                                 estimatedTax = actualTax;
                                 grossNeeded = netNeed + estimatedTax;
                             }
-                               runLifetimeTax += estimatedTax;
+                            
+                            runLifetimeTax += estimatedTax;
+                            
                             if (pathInsolvent) {
                                 currentBridge = 0;
                                 currentCore = 0; 
@@ -689,7 +716,7 @@
                             currentCash -= cashPull;
                             currentCore -= corePull;
                             currentHSA -= hsaPull;
-
+                            
                             if (excessCash > 0) {
                                 currentBridge += excessCash;
                             }
@@ -712,22 +739,26 @@
                         }
 
                         if (age === 59 && currentBridge <= 0) bridgeSurvivedTo60 = false;
+                        
                         currentSpending *= (1 + d.inflationRate);
                         currentHealthPremium *= (1 + d.medInflationRate);
                         currentLtcCost *= (1 + d.medInflationRate);
-
+                        
                         if (shouldTrackPlotData) {
                             pathCombined.push(currentBridge + currentCore + currentHSA + currentCash);
                             pathBridge.push(currentBridge);
                             pathCore.push(currentCore);
                         }
                     }
+                    
                     lifetimeTaxValues.push(runLifetimeTax);
+                    
                     if (!pathInsolvent && (currentBridge + currentCore + currentHSA + currentCash > 0)) lifetimeSuccessCount++;
                     if (bridgeSurvivedTo60 && !pathInsolvent) bridgeSuccessCount++;
                     if (d.rule5515 && d.retirementAge === 55 && !bridgeSurvivedTo60 && !pathInsolvent) {
                        savedBy5515Count++;
                     }
+                    
                     terminalCombinedValues.push(currentBridge + currentCore + currentHSA + currentCash);
                     
                     if (shouldTrackPlotData) {
@@ -744,15 +775,14 @@
                 lifetimeTaxValues.sort((a, b) => a - b);
                 
                 // Safely calculate Withdrawal Rate using projected values mapped to the worker payload
-                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] ||
-                (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve);
+                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve);
                 
                 let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
                 let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
                 let inflatedHealthSpend = (d.retirementAge < 65) ? (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
                 
-                let wRate = (((inflatedBaseSpend + inflatedHealthSpend) / medianRetAssets) * 100).toFixed(1);
-
+                let wRate = (((inflatedBaseSpend + inflatedHealthSpend) / Math.max(medianRetAssets, 1)) * 100).toFixed(1);
+                
                 self.postMessage({
                     successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
                     bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
@@ -767,11 +797,8 @@
                     p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
                     p75: terminalCombinedValues[Math.floor(iterations * 0.75)],
                     p95: terminalCombinedValues[Math.floor(iterations * 0.95)],
-
-                   
                     
                     withdrawalRate: wRate,
-
                     plotCombined, plotBridge, plotCore
                 });
             };
@@ -791,9 +818,10 @@
         let rule5515 = false, dynamicSpending = true;
         
         let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null;
+        let simTimeout = null;
         let globalPlotData = { combined: [], bridge: [], core: [] }, lastSimulatedMetrics = {};
         let ingestedRows = [];
-        
+
         function initWorker() {
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             simWorker = new Worker(URL.createObjectURL(blob));
@@ -811,9 +839,15 @@
         function runMonteCarloSimulation() {
             document.getElementById('processing-indicator').classList.remove('hidden');
             syncNetWorthSummaryPanel();
-            const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
-            if (!simWorker) initWorker();
-            simWorker.postMessage(simulationConfig);
+            
+            // The magic debounce layer - protects the UI and Worker from flood crashing
+            if (simTimeout) clearTimeout(simTimeout);
+            
+            simTimeout = setTimeout(() => {
+                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
+                if (!simWorker) initWorker();
+                simWorker.postMessage(simulationConfig);
+            }, 150);
         }
 
         function parseCSVLine(text) {
@@ -832,7 +866,6 @@
             const file = input.files[0];
             if (!file) return;
             
-            // FIX 1: Clear input immediately to prevent the race condition
             input.value = ''; 
             
             const reader = new FileReader();
@@ -847,8 +880,6 @@
                     for (let line of lines) {
                         if (!line || !line.trim()) continue;
                         let parsed = parseCSVLine(line);
-                        
-                        // FIX 2: Safe header check to prevent silent failures on empty cells
                         if (parsed.some(cell => cell && (cell.toLowerCase().includes('current value') || cell.toLowerCase().includes('balance')))) {
                             headers = parsed.map(h => h ? h.toLowerCase() : '');
                             valueIdx = headers.findIndex(h => h.includes('current value') || h.includes('balance') || h.includes('value'));
@@ -874,7 +905,6 @@
                                 let combinedLabelText = `${accountName} ${label}`.toLowerCase();
                                 let initialPoolSelection = 'bridge'; 
 
-                                // Fidelity HSA mapping restored to its own pool
                                 if (combinedLabelText.includes('health savings account') || combinedLabelText.includes('hsa')) {
                                     initialPoolSelection = 'hsa';
                                 } else if (combinedLabelText.includes('ira') || combinedLabelText.includes('401k') || combinedLabelText.includes('403b') || combinedLabelText.includes('roth')) {
@@ -936,11 +966,9 @@
             const bBtn = document.getElementById(`modal-btn-bridge-${idx}`);
             const cBtn = document.getElementById(`modal-btn-core-${idx}`);
             const hBtn = document.getElementById(`modal-btn-hsa-${idx}`);
-            
             bBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'bridge' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white");
             cBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'core' ? "bg-cyan-600 text-white shadow" : "text-slate-400 hover:text-white");
             hBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'hsa' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white");
-
             recalculateModalTotals();
         }
 
@@ -963,7 +991,6 @@
                 else if (r.pool === 'core') finalCore += r.value; 
                 else if (r.pool === 'hsa') finalHSA += r.value; 
             });
-            
             if (finalBridge > 2000000) document.getElementById('input-bridge').max = Math.ceil(finalBridge * 1.2);
             if (finalCore > 2000000) document.getElementById('input-core').max = Math.ceil(finalCore * 1.2);
             if (finalHSA > 500000) document.getElementById('input-hsa-start').max = Math.ceil(finalHSA * 1.2);
@@ -971,7 +998,6 @@
             bridgeCapital = Math.round(finalBridge);
             coreCapital = Math.round(finalCore);
             hsaStart = Math.round(finalHSA);
-            
             document.getElementById('input-bridge').value = bridgeCapital;
             document.getElementById('input-core').value = coreCapital;
             document.getElementById('input-hsa-start').value = hsaStart;
@@ -991,11 +1017,12 @@
             document.getElementById('panel-projected-net-worth').textContent = `$${Math.round(res.medianRetNW).toLocaleString()}`;
             document.getElementById('panel-proj-bridge-val').textContent = `$${Math.round(res.medianRetBridge).toLocaleString()}`;
             document.getElementById('panel-proj-core-val').textContent = `$${Math.round(res.medianRetCore).toLocaleString()}`;
-            document.getElementById('stat-withdrawal-rate').textContent = `${res.withdrawalRate}%`;
             
-            // Add a color-coding logic to indicate safety
+            let iwrDisplay = (res.withdrawalRate === 'NaN' || !isFinite(res.withdrawalRate)) ? '0.0' : res.withdrawalRate;
+            document.getElementById('stat-withdrawal-rate').textContent = `${iwrDisplay}%`;
+            
             const iwrEl = document.getElementById('stat-withdrawal-rate');
-            const iwrVal = parseFloat(res.withdrawalRate);
+            const iwrVal = parseFloat(iwrDisplay);
             iwrEl.className = `text-3xl font-extrabold tracking-tight mt-1 ${iwrVal > 5 ? 'text-red-400' : iwrVal > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
             
             const sRate = document.getElementById('stat-success-rate');
@@ -1004,54 +1031,54 @@
             
             document.getElementById('stat-bridge-survival').textContent = `${res.bridgeSurvivalRate}%`;
             document.getElementById('stat-median-estate').textContent = `$${Math.round(res.medianEstate).toLocaleString()}`;
-
-            // Populate the new Right Rail Bounds Tracker
-            if (res.p95) {
+            
+            if (res.p95 !== undefined) {
                 document.getElementById('stat-p95').textContent = `$${Math.round(res.p95).toLocaleString()}`;
                 document.getElementById('stat-p75').textContent = `$${Math.round(res.p75).toLocaleString()}`;
                 document.getElementById('stat-p50').textContent = `$${Math.round(res.medianEstate).toLocaleString()}`;
                 document.getElementById('stat-p25').textContent = `$${Math.round(res.p25).toLocaleString()}`;
                 document.getElementById('stat-p05').textContent = `$${Math.round(res.p05).toLocaleString()}`;
             }
-            // Tax Drag Strategy Module Injection
-    const taxContainer = document.getElementById('right-rail-tax-placeholder');
-    if (taxContainer && res.medianLifetimeTax !== undefined) {
-        taxContainer.className = "mt-4 bg-slate-900 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-center";
-        taxContainer.innerHTML = `
-            <span class="text-slate-400 text-[10px] uppercase tracking-wide font-semibold mb-1">Median Lifetime Tax Paid</span>
-            <span class="font-mono text-xl font-bold text-amber-400">$${Math.round(res.medianLifetimeTax).toLocaleString()}</span>
-            <span class="text-[9px] text-slate-500 mt-1">Total projected drag across progressive brackets</span>
-        `;
-    }
-          // Corporate 55/15 Module Injection
-    const rule55Container = document.getElementById('right-rail-55-placeholder');
-    if (rule55Container) {
-        if (retirementAge === 55 && document.getElementById('toggle-5515').checked) {
-            rule55Container.innerHTML = `
-                <div class="w-12 h-12 rounded-full border-[3px] border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-sm shadow-inner bg-emerald-500/10 shrink-0">
-                    ${res.savedBy5515Rate}%
-                </div>
-                <div class="flex-1">
-                    <p class="text-[11px] font-bold text-slate-300">Portfolios Saved</p>
-                    <p class="text-[9px] text-slate-500 leading-snug mt-0.5">Iterations that depleted the bridge early but survived via penalty bypass.</p>
-                </div>
-            `;
-        } else if (retirementAge === 55) {
-            rule55Container.innerHTML = `
-                <div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shadow-inner shrink-0">
-                    <span class="material-icons text-lg">lock_open</span>
-                </div>
-                <p class="text-[10px] text-slate-400 flex-1 leading-relaxed">Provision unlocked. Toggle the exemption above to track impact.</p>
-            `;
-        } else {
-            rule55Container.innerHTML = `
-                <div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shadow-inner shrink-0">
-                    <span class="material-icons text-lg">lock</span>
-                </div>
-                <p class="text-[10px] text-slate-400 flex-1 leading-relaxed">Provision locked. Exemption only applies when targeting age 55.</p>
-            `;
-        }
-    }
+
+            const taxContainer = document.getElementById('right-rail-tax-placeholder');
+            if (taxContainer && res.medianLifetimeTax !== undefined) {
+                taxContainer.className = "mt-4 bg-slate-900 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-center";
+                taxContainer.innerHTML = `
+                    <span class="text-slate-400 text-[10px] uppercase tracking-wide font-semibold mb-1">Median Lifetime Tax Paid</span>
+                    <span class="font-mono text-xl font-bold text-amber-400">$${Math.round(res.medianLifetimeTax).toLocaleString()}</span>
+                    <span class="text-[9px] text-slate-500 mt-1">Total projected drag across progressive brackets</span>
+                `;
+            }
+
+            const rule55Container = document.getElementById('right-rail-55-placeholder');
+            if (rule55Container) {
+                if (retirementAge === 55 && document.getElementById('toggle-5515').checked) {
+                    rule55Container.innerHTML = `
+                        <div class="w-12 h-12 rounded-full border-[3px] border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-sm shadow-inner bg-emerald-500/10 shrink-0">
+                            ${res.savedBy5515Rate}%
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[11px] font-bold text-slate-300">Portfolios Saved</p>
+                            <p class="text-[9px] text-slate-500 leading-snug mt-0.5">Iterations that depleted the bridge early but survived via penalty bypass.</p>
+                        </div>
+                    `;
+                } else if (retirementAge === 55) {
+                    rule55Container.innerHTML = `
+                        <div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shadow-inner shrink-0">
+                            <span class="material-icons text-lg">lock_open</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 flex-1 leading-relaxed">Provision unlocked. Toggle the exemption above to track impact.</p>
+                    `;
+                } else {
+                    rule55Container.innerHTML = `
+                        <div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shadow-inner shrink-0">
+                            <span class="material-icons text-lg">lock</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 flex-1 leading-relaxed">Provision locked. Exemption only applies when targeting age 55.</p>
+                    `;
+                }
+            }
+
             lastSimulatedMetrics = {
                 successRate: `${res.successRate}%`, bridgeSurvivalRate: `${res.bridgeSurvivalRate}%`,
                 medianEstateAge90: `$${Math.round(res.medianEstate).toLocaleString()}`, projectedNWRetirement: `$${Math.round(res.medianRetNW).toLocaleString()}`,
@@ -1087,6 +1114,7 @@
             chartDatasets[medIdx].borderWidth = 3.5;
             chartDatasets[medIdx].label = 'Median Cluster Baseline';
 
+            // Maintained destroy mechanism for perfect dataset garbage collection safety
             if (chartInstance) chartInstance.destroy();
             chartInstance = new Chart(ctx, {
                 type: 'line',
@@ -1104,7 +1132,6 @@
                                 label: (context) => {
                                     if (!(context.dataset.borderWidth > 2 || context.datasetIndex === 0)) return null;
                                     let val = context.raw;
-                                    // Tooltip Hard Cap UI Logic
                                     let displayVal = val >= 10000000 ? '>$10M' : '$' + Math.round(val).toLocaleString();
                                     return `${context.dataset.label || 'Path'}: ${displayVal}`;
                                 } 
@@ -1117,7 +1144,7 @@
                             ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } 
                         },
                         y: { 
-                            max: 10000000, // Visual Axis Capping to prevent extreme scaling
+                            max: 10000000,
                             grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
                             ticks: { 
                                 color: '#64748b', 
@@ -1202,27 +1229,38 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
 
         function applyState(s) {
-            startAge = s.startAge; retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending;
-            bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; hsaStart = s.hsaStart || 0; cashReserve = s.cashReserve || 0; meanReturnBridge = s.meanReturnBridge || 0.095; stdDevBridge = s.stdDevBridge || 0.18; meanReturnCore = s.meanReturnCore || 0.075; stdDevCore = s.stdDevCore || 0.12; cashYield = s.cashYield || 0.0329; inflationRate = s.inflationRate;
-            healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost; stateTaxRate = s.stateTaxRate || 0; medInflationRate = s.medInflationRate || 0.05; rule5515 = s.rule5515 || false;
+            startAge = s.startAge;
+            retirementAge = s.retirementAge; savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending;
+            bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; hsaStart = s.hsaStart || 0; cashReserve = s.cashReserve || 0; meanReturnBridge = s.meanReturnBridge || 0.095; 
+            stdDevBridge = s.stdDevBridge || 0.18; meanReturnCore = s.meanReturnCore || 0.075; stdDevCore = s.stdDevCore || 0.12; cashYield = s.cashYield || 0.0329; 
+            inflationRate = s.inflationRate;
+            healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost; stateTaxRate = s.stateTaxRate || 0;
+            medInflationRate = s.medInflationRate || 0.05; rule5515 = s.rule5515 || false;
+            
             document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
-            document.getElementById('input-savings-taxable').value = savingsTaxable; document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('input-savings-hsa').value = savingsHSA;
-            document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('input-core').value = coreCapital; document.getElementById('input-hsa-start').value = hsaStart;
+            document.getElementById('input-savings-taxable').value = savingsTaxable;
+            document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('input-savings-hsa').value = savingsHSA;
+            document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('input-core').value = coreCapital;
+            document.getElementById('input-hsa-start').value = hsaStart;
             document.getElementById('input-cash-reserve').value = cashReserve; document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
             document.getElementById('input-return-bridge').value = (meanReturnBridge*100).toFixed(1); document.getElementById('label-hsa-start').textContent = `$${hsaStart.toLocaleString()}`;
             document.getElementById('input-vol-bridge').value = (stdDevBridge*100).toFixed(1);
             document.getElementById('input-return-core').value = (meanReturnCore*100).toFixed(1); document.getElementById('input-vol-core').value = (stdDevCore*100).toFixed(1);
             document.getElementById('input-cash-yield').value = (cashYield*100).toFixed(2); document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
-            document.getElementById('input-health').value = healthPremium; document.getElementById('input-ss').value = socialSecurity; document.getElementById('input-ltc').value = ltcCost;
+            document.getElementById('input-health').value = healthPremium; document.getElementById('input-ss').value = socialSecurity;
+            document.getElementById('input-ltc').value = ltcCost;
+            
             if(document.getElementById('input-state-tax')) { document.getElementById('input-state-tax').value = (stateTaxRate*100).toFixed(1); document.getElementById('label-state-tax').textContent = `${(stateTaxRate*100).toFixed(1)}%`; }
             if(document.getElementById('input-med-inflation')) { document.getElementById('input-med-inflation').value = (medInflationRate*100).toFixed(1); document.getElementById('label-med-inflation').textContent = `${(medInflationRate*100).toFixed(1)}%`; }
+            
             document.getElementById('toggle-5515').checked = rule5515; document.getElementById('toggle-dynamic-spend').checked = dynamicSpending;
             updateLabelElements(); 
             setRetirementAge(retirementAge);
         }
 
         function updateCurrentAge(v) { 
-            startAge = parseInt(v); document.getElementById('label-current-age').textContent = startAge; 
+            startAge = parseInt(v);
+            document.getElementById('label-current-age').textContent = startAge; 
             const validAges = [45, 50, 55, 62, 67];
             if (startAge > retirementAge) {
                 let nextValidAge = validAges.find(age => age >= startAge);
@@ -1241,7 +1279,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
                 if (b < startAge) {
                     btn.className = "py-2 text-xs rounded-lg text-slate-600 bg-slate-900 opacity-50 cursor-not-allowed";
                     btn.disabled = true;
-                 } else {
+                } else {
                     btn.className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800";
                     btn.disabled = false;
                 }
@@ -1270,9 +1308,9 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function snapHSALimit(v) { document.getElementById('input-savings-hsa').value = v; updateSavingsHSA(v); }
         function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; runMonteCarloSimulation(); }
         function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; runMonteCarloSimulation(); }
-        function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; runMonteCarloSimulation();}
-        function updateStateTax(v) { stateTaxRate = parseFloat(v)/100; document.getElementById('label-state-tax').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation();}
-        function updateMedInflation(v) { medInflationRate = parseFloat(v)/100; document.getElementById('label-med-inflation').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation();}
+        function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; runMonteCarloSimulation(); }
+        function updateStateTax(v) { stateTaxRate = parseFloat(v)/100; document.getElementById('label-state-tax').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation(); }
+        function updateMedInflation(v) { medInflationRate = parseFloat(v)/100; document.getElementById('label-med-inflation').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation(); }
         function updateSpending(v) { spending = parseInt(v); document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateBridge(v) { bridgeCapital = parseInt(v); document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateCore(v) { coreCapital = parseInt(v); document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`; runMonteCarloSimulation(); }
@@ -1284,11 +1322,38 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function updateVolCore(v) { stdDevCore = parseFloat(v)/100; document.getElementById('label-vol-core').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateCashYield(v) { cashYield = parseFloat(v)/100; document.getElementById('label-cash-yield').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateInflation(v) { inflationRate = parseFloat(v)/100; document.getElementById('label-inflation').textContent = `${v}%`; runMonteCarloSimulation(); }
-        function updateLabelElements() { document.getElementById('label-total-savings').textContent = `Total: $${(savingsTaxable+savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr`; }
-        function syncNetWorthSummaryPanel() { document.getElementById('panel-net-worth').textContent = `$${(cashReserve+bridgeCapital+coreCapital+hsaStart).toLocaleString()}`; document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`;
-        document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`; document.getElementById('panel-ret-age-label').textContent = retirementAge; }
-        function switchChartTab(t) { activeTab = t; ['combined','bridge','core'].forEach(tab => { document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white"; }); renderChartData(); }
-        function updateBaselineButtons() { let exist = !!savedBaseline || !!safeStorage.getItem('retirement_sim_baseline_10k'); const btn = document.getElementById('btn-reset-baseline'); if (exist) { btn.disabled = false; btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 active:scale-95"; } else { btn.disabled = true; btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg border border-emerald-500/20 opacity-40 cursor-not-allowed"; } }
+        
+        function updateLabelElements() { 
+            document.getElementById('label-total-savings').textContent = `Total: $${(savingsTaxable+savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr`; 
+        }
+        
+        function syncNetWorthSummaryPanel() { 
+            document.getElementById('panel-net-worth').textContent = `$${(cashReserve+bridgeCapital+coreCapital+hsaStart).toLocaleString()}`; 
+            document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; 
+            document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`;
+            document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`; 
+            document.getElementById('panel-ret-age-label').textContent = retirementAge; 
+        }
+        
+        function switchChartTab(t) { 
+            activeTab = t;
+            ['combined','bridge','core'].forEach(tab => { 
+                document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white"; 
+            });
+            renderChartData(); 
+        }
+        
+        function updateBaselineButtons() { 
+            let exist = !!savedBaseline || !!safeStorage.getItem('retirement_sim_baseline_10k');
+            const btn = document.getElementById('btn-reset-baseline'); 
+            if (exist) { 
+                btn.disabled = false;
+                btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 active:scale-95";
+            } else { 
+                btn.disabled = true; 
+                btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg border border-emerald-500/20 opacity-40 cursor-not-allowed";
+            } 
+        }
 
         window.onload = () => {
             initWorker();
