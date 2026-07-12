@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Planner v.3.1.0</title>
+    <title>Beardzley Retirement Planner v.3.1.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.1.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Planner v.3.1.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -456,6 +456,22 @@
             self.onmessage = function(e) {
                 const d = e.data;
                 const iterations = 10000;
+                // Calculate Median Retirement
+                const sortedRetirement = retirementCombinedValues.sort((a, b) => a - b);
+                const medianRetirementAssets = sortedRetirement[Math.floor(sortedRetirement.length / 2)];
+                // Inside your worker.onmessage handler:
+                const medianAssets = res.medianRetirementAssets;
+                const targetAge = parseInt(document.getElementById('input-ret-age') ? document.getElementById('input-ret-age').value : retirementAge); // Adjust selector to your specific age input
+                const annualSpend = parseFloat(document.getElementById('input-spending').value) + 
+                    (targetAge < 65 ? parseFloat(document.getElementById('input-health').value) : 0);
+
+                const iwr = (annualSpend / medianAssets) * 100;
+
+                const iwrEl = document.getElementById('stat-withdrawal-rate');
+                iwrEl.textContent = `${iwr.toFixed(1)}%`;
+
+                 // Dynamic color coding
+                iwrEl.className = `text-3xl font-extrabold tracking-tight mt-1 ${iwr > 5 ? 'text-red-400' : iwr > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
                 
                 let lifetimeSuccessCount = 0;
                 let bridgeSuccessCount = 0;
@@ -719,6 +735,8 @@
                     // Calculate IWR based on starting portfolio and first year of retirement spending
                     // We look at the first year spending required vs total assets
                     withdrawalRate: ((d.spending + d.healthPremium) / (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve) * 100).toFixed(1),
+
+                    medianRetirementAssets: medianRetirementAssets
 
                     plotCombined, plotBridge, plotCore
                 });
