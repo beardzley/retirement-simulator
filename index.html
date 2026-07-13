@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.5.3.0</title>
+    <title>Beardzley Retirement Simulator v.5.4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.5.3.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.5.4.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -400,7 +400,12 @@
 
                     <div class="bg-slate-950/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
                         <div>
-                            <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Initial Withdrawal Rate</p>
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Initial Withdrawal Rate</p>
+                                <span id="warning-iwr" class="hidden text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 shadow-sm items-center gap-1 cursor-help" title="Warning: First year spend exceeds projected total portfolio.">
+                                    <span class="material-icons text-[12px]">error_outline</span> Exceeds Portfolio
+                                </span>
+                            </div>
                             <h3 id="stat-withdrawal-rate" class="text-3xl font-extrabold tracking-tight text-cyan-400 mt-1">0.0%</h3>
                             <p class="text-[10px] text-slate-500 mt-1">First year % of total portfolio</p>
                         </div>
@@ -432,7 +437,7 @@
                     <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <span class="material-icons text-sm">account_balance</span> Tax Drag Strategy
                     </h3>
-                    <p class="text-[10px] text-slate-400 leading-relaxed">Estimate of lifetime tax drag based on progressive brackets and asset splits to optimize sales across tax years.</p>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">Structural placeholder for AGI straddle modeling. Will estimate lifetime tax drag based on progressive brackets and asset splits to optimize sales across tax years.</p>
                     <div id="right-rail-tax-placeholder" class="mt-4 h-24 bg-slate-900 border border-slate-800/80 rounded-xl flex items-center justify-center text-slate-500 text-[11px] font-semibold tracking-wide">
                         [Module Pending Setup]
                     </div>
@@ -799,7 +804,9 @@
                 let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
                 let inflatedHealthSpend = (d.retirementAge < 65) ? (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
                 
-                let wRate = (((inflatedBaseSpend + inflatedHealthSpend) / Math.max(medianRetAssets, 1)) * 100).toFixed(1);
+                let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend) / Math.max(medianRetAssets, 1)) * 100;
+                let isExceeded = rawWRate > 100;
+                let wRate = Math.min(rawWRate, 100).toFixed(1);
                 
                 self.postMessage({
                     successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
@@ -815,6 +822,7 @@
                     p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
                     
                     withdrawalRate: wRate,
+                    iwrExceeded: isExceeded,
                     plotCombined: [p10Combined, p25Combined, p50Combined], 
                     plotBridge: [p10Bridge, p25Bridge, p50Bridge], 
                     plotCore: [p10Core, p25Core, p50Core]
@@ -1042,6 +1050,17 @@
             const iwrEl = document.getElementById('stat-withdrawal-rate');
             const iwrVal = parseFloat(iwrDisplay);
             iwrEl.className = `text-3xl font-extrabold tracking-tight mt-1 ${iwrVal > 5 ? 'text-red-400' : iwrVal > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
+            
+            const iwrWarning = document.getElementById('warning-iwr');
+            if (iwrWarning) {
+                if (res.iwrExceeded) {
+                    iwrWarning.classList.remove('hidden');
+                    iwrWarning.classList.add('inline-flex');
+                } else {
+                    iwrWarning.classList.add('hidden');
+                    iwrWarning.classList.remove('inline-flex');
+                }
+            }
             
             const sRate = document.getElementById('stat-success-rate');
             sRate.textContent = `${res.successRate}%`;
