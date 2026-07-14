@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.5.4.0</title>
+    <title>Beardzley Retirement Simulator v.5.5.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.5.4.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.5.5.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -106,14 +106,18 @@
                     <span id="panel-projected-net-worth" class="text-base font-mono font-bold text-cyan-400">$0</span>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 text-[10px] py-1.5 border-t border-slate-800/50">
+                <div class="grid grid-cols-3 gap-1 text-[9px] py-1.5 border-t border-slate-800/50 text-center">
                     <div>
-                        <span class="text-slate-400 block">Bridge (Proj. Median):</span>
-                        <span id="panel-proj-bridge-val" class="font-mono text-cyan-200 font-semibold">$0</span>
+                        <span class="text-slate-400 block">Bridge (Proj.):</span>
+                        <span id="panel-proj-bridge-val" class="font-mono text-cyan-200 font-semibold block truncate">$0</span>
                     </div>
                     <div>
-                        <span class="text-slate-400 block">Core (Proj. Median):</span>
-                        <span id="panel-proj-core-val" class="font-mono text-cyan-200 font-semibold">$0</span>
+                        <span class="text-slate-400 block">Core (Proj.):</span>
+                        <span id="panel-proj-core-val" class="font-mono text-cyan-200 font-semibold block truncate">$0</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">Cash (Proj.):</span>
+                        <span id="panel-proj-cash-val" class="font-mono text-cyan-200 font-semibold block truncate">$0</span>
                     </div>
                 </div>
             </div>
@@ -415,12 +419,13 @@
 
                 <div class="bg-slate-950/40 border border-slate-800 rounded-3xl p-6 flex-1 flex flex-col min-h-[400px]">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-slate-800/80 pb-4">
-                        <div class="flex gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 font-medium">
-                            <button onclick="switchChartTab('combined')" id="tab-combined" class="px-4 py-2 text-xs rounded-lg transition-all bg-slate-800 text-white">Combined Net Worth</button>
-                            <button onclick="switchChartTab('bridge')" id="tab-bridge" class="px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white">Bridge Account Only</button>
-                            <button onclick="switchChartTab('core')" id="tab-core" class="px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white">Core Accounts Only</button>
+                        <div class="flex gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 font-medium overflow-x-auto max-w-full">
+                            <button onclick="switchChartTab('combined')" id="tab-combined" class="px-4 py-2 text-xs rounded-lg transition-all bg-slate-800 text-white whitespace-nowrap">Combined Net Worth</button>
+                            <button onclick="switchChartTab('bridge')" id="tab-bridge" class="px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white whitespace-nowrap">Bridge Account Only</button>
+                            <button onclick="switchChartTab('core')" id="tab-core" class="px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white whitespace-nowrap">Core Accounts Only</button>
+                            <button onclick="switchChartTab('cash')" id="tab-cash" class="px-4 py-2 text-xs rounded-lg transition-all text-slate-400 hover:text-white whitespace-nowrap">Cash Reserves Only</button>
                         </div>
-                        <span class="text-xs text-slate-500 flex items-center gap-1 font-semibold">
+                        <span class="text-xs text-slate-500 flex items-center gap-1 font-semibold whitespace-nowrap">
                             <span class="material-icons text-xs">visibility</span> Fidelity Scenario Modeling Applied
                         </span>
                     </div>
@@ -494,12 +499,14 @@
                 let retirementCombinedValues = [];
                 let retirementBridgeValues = [];
                 let retirementCoreValues = [];
+                let retirementCashValues = [];
                 let lifetimeTaxValues = [];
 
                 let yearsCount = d.endAge - d.startAge + 1;
                 let yearlyCombined = Array.from({length: yearsCount}, () => new Float32Array(iterations));
                 let yearlyBridge = Array.from({length: yearsCount}, () => new Float32Array(iterations));
                 let yearlyCore = Array.from({length: yearsCount}, () => new Float32Array(iterations));
+                let yearlyCash = Array.from({length: yearsCount}, () => new Float32Array(iterations));
 
                 function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, age) {
                     let inflMult = Math.pow(1 + d.inflationRate, age - d.startAge);
@@ -583,6 +590,7 @@
                     yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash;
                     yearlyBridge[yearIdx][i] = currentBridge;
                     yearlyCore[yearIdx][i] = currentCore;
+                    yearlyCash[yearIdx][i] = currentCash;
                     yearIdx++;
                     
                     for (let age = d.startAge; age < d.endAge; age++) {
@@ -713,6 +721,7 @@
                                     yearlyCombined[yearIdx][i] = 0;
                                     yearlyBridge[yearIdx][i] = 0;
                                     yearlyCore[yearIdx][i] = 0;
+                                    yearlyCash[yearIdx][i] = 0;
                                     yearIdx++;
                                 }
                                 break;
@@ -727,6 +736,8 @@
                             currentHSA -= hsaPull;
                             
                             if (excessCash > 0) {
+                                // Sweep forced RMD overflow into safe Cash Reserves 
+                                // instead of aggressive Bridge equities
                                 currentCash += excessCash;
                             }
 
@@ -745,6 +756,7 @@
                             retirementCombinedValues.push(currentBridge + currentCore + currentHSA + currentCash);
                             retirementBridgeValues.push(currentBridge);
                             retirementCoreValues.push(currentCore);
+                            retirementCashValues.push(currentCash);
                         }
 
                         if (age === 59 && currentBridge <= 0) bridgeSurvivedTo60 = false;
@@ -756,6 +768,7 @@
                         yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash;
                         yearlyBridge[yearIdx][i] = currentBridge;
                         yearlyCore[yearIdx][i] = currentCore;
+                        yearlyCash[yearIdx][i] = currentCash;
                         yearIdx++;
                     }
                     
@@ -773,11 +786,13 @@
                 let p10Combined = [], p25Combined = [], p50Combined = [];
                 let p10Bridge = [], p25Bridge = [], p50Bridge = [];
                 let p10Core = [], p25Core = [], p50Core = [];
+                let p10Cash = [], p25Cash = [], p50Cash = [];
 
                 for (let y = 0; y < yearsCount; y++) {
                     let yearComb = yearlyCombined[y]; yearComb.sort();
                     let yearBrid = yearlyBridge[y]; yearBrid.sort();
                     let yearCor = yearlyCore[y]; yearCor.sort();
+                    let yearCas = yearlyCash[y]; yearCas.sort();
 
                     p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
                     p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
@@ -790,12 +805,17 @@
                     p10Core.push(yearCor[Math.floor(iterations * 0.10)]);
                     p25Core.push(yearCor[Math.floor(iterations * 0.25)]);
                     p50Core.push(yearCor[Math.floor(iterations * 0.50)]);
+                    
+                    p10Cash.push(yearCas[Math.floor(iterations * 0.10)]);
+                    p25Cash.push(yearCas[Math.floor(iterations * 0.25)]);
+                    p50Cash.push(yearCas[Math.floor(iterations * 0.50)]);
                 }
 
                 terminalCombinedValues.sort((a, b) => a - b);
                 retirementCombinedValues.sort((a, b) => a - b);
                 retirementBridgeValues.sort((a, b) => a - b);
                 retirementCoreValues.sort((a, b) => a - b);
+                retirementCashValues.sort((a, b) => a - b);
                 lifetimeTaxValues.sort((a, b) => a - b);
                 
                 let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve);
@@ -816,6 +836,7 @@
                     medianRetNW: medianRetAssets,
                     medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
                     medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
+                    medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
                     medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
                     
                     p10: terminalCombinedValues[Math.floor(iterations * 0.10)],
@@ -825,7 +846,8 @@
                     iwrExceeded: isExceeded,
                     plotCombined: [p10Combined, p25Combined, p50Combined], 
                     plotBridge: [p10Bridge, p25Bridge, p50Bridge], 
-                    plotCore: [p10Core, p25Core, p50Core]
+                    plotCore: [p10Core, p25Core, p50Core],
+                    plotCash: [p10Cash, p25Cash, p50Cash]
                 });
             };
         `;
@@ -846,7 +868,7 @@
         
         let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null;
         let simTimeout = null;
-        let globalPlotData = { combined: [], bridge: [], core: [] }, lastSimulatedMetrics = {};
+        let globalPlotData = { combined: [], bridge: [], core: [], cash: [] }, lastSimulatedMetrics = {};
         let ingestedRows = [];
 
         function initWorker() {
@@ -858,6 +880,7 @@
                 globalPlotData.combined = res.plotCombined;
                 globalPlotData.bridge = res.plotBridge;
                 globalPlotData.core = res.plotCore;
+                globalPlotData.cash = res.plotCash;
                 updateDOMMetrics(res);
                 renderChartData();
             };
@@ -1043,6 +1066,7 @@
             document.getElementById('panel-projected-net-worth').textContent = `$${Math.round(res.medianRetNW).toLocaleString()}`;
             document.getElementById('panel-proj-bridge-val').textContent = `$${Math.round(res.medianRetBridge).toLocaleString()}`;
             document.getElementById('panel-proj-core-val').textContent = `$${Math.round(res.medianRetCore).toLocaleString()}`;
+            document.getElementById('panel-proj-cash-val').textContent = `$${Math.round(res.medianRetCash).toLocaleString()}`;
             
             let iwrDisplay = (res.withdrawalRate === 'NaN' || !isFinite(res.withdrawalRate)) ? '0.0' : res.withdrawalRate;
             document.getElementById('stat-withdrawal-rate').textContent = `${iwrDisplay}%`;
@@ -1156,7 +1180,7 @@
                 "Average Market (Median)"
             ];
 
-            let accentColor = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : '#9333ea';
+            let accentColor = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : activeTab === 'core' ? '#9333ea' : '#eab308';
             
             const borderColors = [
                 '#ef4444', 
@@ -1418,8 +1442,8 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         
         function switchChartTab(t) { 
             activeTab = t;
-            ['combined','bridge','core'].forEach(tab => { 
-                document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white"; 
+            ['combined','bridge','core', 'cash'].forEach(tab => { 
+                document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium whitespace-nowrap" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white whitespace-nowrap"; 
             });
             renderChartData(); 
         }
