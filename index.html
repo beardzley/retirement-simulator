@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.5.6.0</title>
+    <title>Beardzley Retirement Simulator v.5.7.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.5.6.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.5.7.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -171,7 +171,7 @@
                 <div class="flex justify-between items-center mb-1">
                     <div class="flex items-center gap-2">
                         <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Active Savings Plan</h2>
-                        <span id="warning-deficit" class="hidden text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 shadow-sm items-center gap-1 cursor-help" title="Warning: Your savings plus comfortable spend exceeds your gross yearly income.">
+                        <span id="warning-deficit" class="hidden text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 shadow-sm items-center gap-1 cursor-help" title="Warning: Your savings + debt + comfortable spend exceeds your gross yearly income.">
                             <span class="material-icons text-[12px]">error_outline</span> Deficit
                         </span>
                     </div>
@@ -220,6 +220,35 @@
                         <span id="label-savings-cash" class="text-xs font-mono font-bold text-amber-400">$0/yr</span>
                     </div>
                     <input type="range" id="input-savings-cash" min="0" max="60000" step="1000" value="0" oninput="updateSavingsCash(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                </div>
+            </div>
+
+            <div class="border-t border-slate-800/60 pt-5 space-y-5">
+                <h2 class="text-xs font-bold text-red-400 tracking-wider uppercase mb-1">Liabilities & Debt Tracking</h2>
+                <p class="text-[10px] text-slate-400 leading-relaxed mb-4">Debt obligations will actively drag down your net worth and require annual cash flow until paid off.</p>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Starting Debt Balance</label>
+                        <span id="label-debt-start" class="text-sm font-mono font-bold text-red-400">$0</span>
+                    </div>
+                    <input type="range" id="input-debt-start" min="0" max="1000000" step="5000" value="0" oninput="updateDebtStart(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Annual Interest Rate</label>
+                        <span id="label-debt-rate" class="text-sm font-mono font-bold text-red-400">5.0%</span>
+                    </div>
+                    <input type="range" id="input-debt-rate" min="0" max="15" step="0.1" value="5.0" oninput="updateDebtRate(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-300">Annual Debt Payment</label>
+                        <span id="label-debt-payment" class="text-sm font-mono font-bold text-red-400">$0/yr</span>
+                    </div>
+                    <input type="range" id="input-debt-payment" min="0" max="100000" step="1000" value="0" oninput="updateDebtPayment(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-red-500">
                 </div>
             </div>
 
@@ -585,6 +614,7 @@
                     let currentCore = d.coreCapital;
                     let currentHSA = d.hsaStart || 0;
                     let currentCash = d.cashReserve || 0;
+                    let currentDebt = d.debtStart || 0;
                     
                     let currentSpending = d.spending;
                     let currentHealthPremium = d.healthPremium;
@@ -595,7 +625,7 @@
                     let pathInsolvent = false;
                     
                     let yearIdx = 0;
-                    yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash;
+                    yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash - currentDebt;
                     yearlyBridge[yearIdx][i] = currentBridge;
                     yearlyCore[yearIdx][i] = currentCore;
                     yearlyCash[yearIdx][i] = currentCash;
@@ -635,6 +665,12 @@
                             currentCore = (currentCore + d.savings401k + d.savingsRoth) * (1 + annualReturnCore);
                             currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
                             currentCash = (currentCash + d.savingsCash) * (1 + d.cashYield);
+                            
+                            if (currentDebt > 0) {
+                                let actualPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
+                                currentDebt = (currentDebt * (1 + d.debtRate)) - actualPayment;
+                                if (currentDebt < 0) currentDebt = 0;
+                            }
                         } else {
                             let phaseMultiplier = 1.0;
                             if (d.dynamicSpending) {
@@ -642,7 +678,14 @@
                                 else if (age >= 75) phaseMultiplier = 0.90;
                             }
 
+                            let activeDebtPayment = 0;
+                            if (currentDebt > 0) {
+                                activeDebtPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
+                            }
+
                             let netNeed = currentSpending * phaseMultiplier;
+                            netNeed += activeDebtPayment; // Force portfolio to cover liability obligation
+                            
                             if (age < 65) netNeed += currentHealthPremium;
                             if (age >= 60) netNeed += currentLtcCost;
                             if (age >= 67) netNeed = Math.max(0, netNeed - (d.socialSecurity * 12));
@@ -726,11 +769,16 @@
                                 currentCash = 0;
                                 
                                 for (let padAge = age; padAge < d.endAge; padAge++) {
-                                    yearlyCombined[yearIdx][i] = 0;
+                                    yearlyCombined[yearIdx][i] = -currentDebt;
                                     yearlyBridge[yearIdx][i] = 0;
                                     yearlyCore[yearIdx][i] = 0;
                                     yearlyCash[yearIdx][i] = 0;
                                     yearIdx++;
+                                    
+                                    // Keep compounding the unpaid debt
+                                    if (currentDebt > 0) {
+                                        currentDebt = currentDebt * (1 + d.debtRate);
+                                    }
                                 }
                                 break;
                             }
@@ -742,6 +790,11 @@
                             currentCash -= cashPull;
                             currentCore -= corePull;
                             currentHSA -= hsaPull;
+                            
+                            if (currentDebt > 0) {
+                                currentDebt = (currentDebt * (1 + d.debtRate)) - activeDebtPayment;
+                                if (currentDebt < 0) currentDebt = 0;
+                            }
                             
                             if (excessCash > 0) {
                                 currentCash += excessCash;
@@ -759,7 +812,7 @@
                         if (currentCash < 0) currentCash = 0;
                         
                         if (age === d.retirementAge - 1) {
-                            retirementCombinedValues.push(currentBridge + currentCore + currentHSA + currentCash);
+                            retirementCombinedValues.push(currentBridge + currentCore + currentHSA + currentCash - currentDebt);
                             retirementBridgeValues.push(currentBridge);
                             retirementCoreValues.push(currentCore);
                             retirementCashValues.push(currentCash);
@@ -771,7 +824,7 @@
                         currentHealthPremium *= (1 + d.medInflationRate);
                         currentLtcCost *= (1 + d.medInflationRate);
                         
-                        yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash;
+                        yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash - currentDebt;
                         yearlyBridge[yearIdx][i] = currentBridge;
                         yearlyCore[yearIdx][i] = currentCore;
                         yearlyCash[yearIdx][i] = currentCash;
@@ -780,13 +833,14 @@
                     
                     lifetimeTaxValues.push(runLifetimeTax);
                     
-                    if (!pathInsolvent && (currentBridge + currentCore + currentHSA + currentCash > 0)) lifetimeSuccessCount++;
+                    let totalRemainingAssets = currentBridge + currentCore + currentHSA + currentCash;
+                    if (!pathInsolvent && totalRemainingAssets > currentDebt) lifetimeSuccessCount++;
                     if (bridgeSurvivedTo60 && !pathInsolvent) bridgeSuccessCount++;
                     if (d.rule5515 && d.retirementAge === 55 && !bridgeSurvivedTo60 && !pathInsolvent) {
                        savedBy5515Count++;
                     }
                     
-                    terminalCombinedValues.push(currentBridge + currentCore + currentHSA + currentCash);
+                    terminalCombinedValues.push(totalRemainingAssets - currentDebt);
                 }
 
                 let p10Combined = [], p25Combined = [], p50Combined = [];
@@ -824,14 +878,20 @@
                 retirementCashValues.sort((a, b) => a - b);
                 lifetimeTaxValues.sort((a, b) => a - b);
                 
-                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve);
+                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
                 
                 let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
                 let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
                 let inflatedHealthSpend = (d.retirementAge < 65) ? (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
                 
-                let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend) / Math.max(medianRetAssets, 1)) * 100;
-                let isExceeded = rawWRate > 100;
+                let projectedDebt = d.debtStart;
+                for(let a = d.startAge; a < d.retirementAge; a++) {
+                    if (projectedDebt > 0) projectedDebt = (projectedDebt * (1 + d.debtRate)) - Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate));
+                }
+                let activeDebtSpend = (projectedDebt > 0) ? Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
+                
+                let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend + activeDebtSpend) / Math.max(medianRetAssets, 1)) * 100;
+                let isExceeded = rawWRate > 100 || medianRetAssets <= 0;
                 let wRate = Math.min(rawWRate, 100).toFixed(1);
                 
                 self.postMessage({
@@ -871,6 +931,7 @@
         let cashYield = 0.0329, inflationRate = 0.025, medInflationRate = 0.05;
         let healthPremium = 10000, socialSecurity = 2500, ltcCost = 3000, stateTaxRate = 0;
         let rule5515 = false, dynamicSpending = true;
+        let debtStart = 0, debtRate = 0.05, debtPayment = 0;
         
         let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null;
         let simTimeout = null;
@@ -899,7 +960,7 @@
             if (simTimeout) clearTimeout(simTimeout);
             
             simTimeout = setTimeout(() => {
-                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
+                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment };
                 if (!simWorker) initWorker();
                 simWorker.postMessage(simulationConfig);
             }, 150);
@@ -1280,11 +1341,12 @@ RETIREMENT SUMMARY
 
 ASSET DEPLOYMENT POSITIONING
 --------------------------------------------------
-* Current Net Worth Baseline:   $${(bridgeCapital+coreCapital+hsaStart+cashReserve).toLocaleString()}
+* Current Net Worth Baseline:   $${(bridgeCapital+coreCapital+hsaStart+cashReserve-debtStart).toLocaleString()}
   - Bridge (Taxable Pool):      $${bridgeCapital.toLocaleString()}
   - Core (Tax-Advantaged Pool): $${coreCapital.toLocaleString()}
   - HSA (Health Savings):       $${hsaStart.toLocaleString()}
   - Cash Reserves Buffer:       $${cashReserve.toLocaleString()}
+  - Current Liabilities (Debt): -$${debtStart.toLocaleString()}
 
 SAVINGS INJECTION VELOCITY
 --------------------------------------------------
@@ -1293,6 +1355,7 @@ SAVINGS INJECTION VELOCITY
   - Taxable Brokerage:          $${savingsTaxable.toLocaleString()}/yr
   - Core Accounts (401k/IRA/HSA):$${(savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr
   - Cash Reserves (HYSA/CDs):   $${savingsCash.toLocaleString()}/yr
+* Active Debt Payment:          $${debtPayment.toLocaleString()}/yr
 
 HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
 --------------------------------------------------
@@ -1315,7 +1378,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
 
         function saveCurrentAsBaseline() {
-            const state = { startAge, retirementAge, salary, savingsTaxable, savings401k, savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
+            const state = { startAge, retirementAge, salary, savingsTaxable, savings401k, savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment };
             savedBaseline = state; safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
             showNotification("Your structural configuration baseline is locked!"); updateBaselineButtons();
         }
@@ -1334,6 +1397,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             inflationRate = s.inflationRate;
             healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost; stateTaxRate = s.stateTaxRate || 0;
             medInflationRate = s.medInflationRate || 0.05; rule5515 = s.rule5515 || false;
+            debtStart = s.debtStart || 0; debtRate = s.debtRate !== undefined ? s.debtRate : 0.05; debtPayment = s.debtPayment || 0;
             
             document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
             document.getElementById('input-salary').value = salary; document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`;
@@ -1353,6 +1417,10 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             if(document.getElementById('input-state-tax')) { document.getElementById('input-state-tax').value = (stateTaxRate*100).toFixed(1); document.getElementById('label-state-tax').textContent = `${(stateTaxRate*100).toFixed(1)}%`; }
             if(document.getElementById('input-med-inflation')) { document.getElementById('input-med-inflation').value = (medInflationRate*100).toFixed(1); document.getElementById('label-med-inflation').textContent = `${(medInflationRate*100).toFixed(1)}%`; }
             
+            if(document.getElementById('input-debt-start')) { document.getElementById('input-debt-start').value = debtStart; document.getElementById('label-debt-start').textContent = `$${debtStart.toLocaleString()}`; }
+            if(document.getElementById('input-debt-rate')) { document.getElementById('input-debt-rate').value = (debtRate*100).toFixed(1); document.getElementById('label-debt-rate').textContent = `${(debtRate*100).toFixed(1)}%`; }
+            if(document.getElementById('input-debt-payment')) { document.getElementById('input-debt-payment').value = debtPayment; document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; }
+
             document.getElementById('toggle-5515').checked = rule5515; document.getElementById('toggle-dynamic-spend').checked = dynamicSpending;
             updateLabelElements(); 
             setRetirementAge(retirementAge);
@@ -1424,6 +1492,9 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function updateVolCore(v) { stdDevCore = parseFloat(v)/100; document.getElementById('label-vol-core').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateCashYield(v) { cashYield = parseFloat(v)/100; document.getElementById('label-cash-yield').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateInflation(v) { inflationRate = parseFloat(v)/100; document.getElementById('label-inflation').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateDebtStart(v) { debtStart = parseInt(v); document.getElementById('label-debt-start').textContent = `$${debtStart.toLocaleString()}`; runMonteCarloSimulation(); }
+        function updateDebtRate(v) { debtRate = parseFloat(v)/100; document.getElementById('label-debt-rate').textContent = `${v}%`; runMonteCarloSimulation(); }
+        function updateDebtPayment(v) { debtPayment = parseInt(v); document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         
         function updateLabelElements() { 
             let totalSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA + savingsCash;
@@ -1431,7 +1502,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             
             let deficitWarning = document.getElementById('warning-deficit');
             if (deficitWarning) {
-                if ((totalSavings + spending) > salary) {
+                if ((totalSavings + spending + debtPayment) > salary) {
                     deficitWarning.classList.remove('hidden');
                     deficitWarning.classList.add('flex');
                 } else {
@@ -1442,7 +1513,8 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
         
         function syncNetWorthSummaryPanel() { 
-            document.getElementById('panel-net-worth').textContent = `$${(cashReserve+bridgeCapital+coreCapital+hsaStart).toLocaleString()}`; 
+            let currentNW = cashReserve + bridgeCapital + coreCapital + hsaStart - debtStart;
+            document.getElementById('panel-net-worth').textContent = `$${currentNW.toLocaleString()}`; 
             document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; 
             document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`;
             document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`; 
