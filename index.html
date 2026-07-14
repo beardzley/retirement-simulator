@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.5.5.0</title>
+    <title>Beardzley Retirement Simulator v.5.6.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.5.5.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.5.6.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -212,6 +212,14 @@
                         <button onclick="snapHSALimit(4400)" class="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 px-2 py-0.5 rounded">Snap Single ($4.4k)</button>
                         <button onclick="snapHSALimit(8750)" class="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 px-2 py-0.5 rounded">Snap Family ($8.75k)</button>
                     </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-0.5">
+                        <label class="text-xs text-slate-300">Cash Reserves (HYSA/CDs)</label>
+                        <span id="label-savings-cash" class="text-xs font-mono font-bold text-amber-400">$0/yr</span>
+                    </div>
+                    <input type="range" id="input-savings-cash" min="0" max="60000" step="1000" value="0" oninput="updateSavingsCash(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
                 </div>
             </div>
 
@@ -626,7 +634,7 @@
                             currentBridge = (currentBridge + d.savingsTaxable) * (1 + netBridgeReturn);
                             currentCore = (currentCore + d.savings401k + d.savingsRoth) * (1 + annualReturnCore);
                             currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
-                            currentCash = currentCash * (1 + d.cashYield);
+                            currentCash = (currentCash + d.savingsCash) * (1 + d.cashYield);
                         } else {
                             let phaseMultiplier = 1.0;
                             if (d.dynamicSpending) {
@@ -736,8 +744,6 @@
                             currentHSA -= hsaPull;
                             
                             if (excessCash > 0) {
-                                // Sweep forced RMD overflow into safe Cash Reserves 
-                                // instead of aggressive Bridge equities
                                 currentCash += excessCash;
                             }
 
@@ -859,7 +865,7 @@
         
         let startAge = 37, retirementAge = 45, endAge = 90;
         let salary = 150000;
-        let savingsTaxable = 0, savings401k = 0, savingsRoth = 0, savingsHSA = 0;
+        let savingsTaxable = 0, savings401k = 0, savingsRoth = 0, savingsHSA = 0, savingsCash = 0;
         let spending = 90000, bridgeCapital = 0, coreCapital = 0, hsaStart = 0, cashReserve = 0;
         let meanReturnBridge = 0.095, stdDevBridge = 0.18, meanReturnCore = 0.075, stdDevCore = 0.12;
         let cashYield = 0.0329, inflationRate = 0.025, medInflationRate = 0.05;
@@ -893,7 +899,7 @@
             if (simTimeout) clearTimeout(simTimeout);
             
             simTimeout = setTimeout(() => {
-                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
+                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
                 if (!simWorker) initWorker();
                 simWorker.postMessage(simulationConfig);
             }, 150);
@@ -1263,7 +1269,7 @@
         }
 
         function exportSummaryData() {
-            const totalAnnualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA;
+            const totalAnnualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA + savingsCash;
             const textSummary = `==================================================
 RETIREMENT SUMMARY
 ==================================================
@@ -1286,6 +1292,7 @@ SAVINGS INJECTION VELOCITY
 * Total Annual Contributions:   $${totalAnnualSavings.toLocaleString()}/yr
   - Taxable Brokerage:          $${savingsTaxable.toLocaleString()}/yr
   - Core Accounts (401k/IRA/HSA):$${(savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr
+  - Cash Reserves (HYSA/CDs):   $${savingsCash.toLocaleString()}/yr
 
 HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
 --------------------------------------------------
@@ -1308,7 +1315,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
 
         function saveCurrentAsBaseline() {
-            const state = { startAge, retirementAge, salary, savingsTaxable, savings401k, savingsRoth, savingsHSA, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
+            const state = { startAge, retirementAge, salary, savingsTaxable, savings401k, savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending };
             savedBaseline = state; safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
             showNotification("Your structural configuration baseline is locked!"); updateBaselineButtons();
         }
@@ -1321,7 +1328,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function applyState(s) {
             startAge = s.startAge;
             retirementAge = s.retirementAge; salary = s.salary !== undefined ? s.salary : 150000;
-            savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; spending = s.spending;
+            savingsTaxable = s.savingsTaxable; savings401k = s.savings401k; savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; savingsCash = s.savingsCash || 0; spending = s.spending;
             bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital; hsaStart = s.hsaStart || 0; cashReserve = s.cashReserve || 0; meanReturnBridge = s.meanReturnBridge || 0.095; 
             stdDevBridge = s.stdDevBridge || 0.18; meanReturnCore = s.meanReturnCore || 0.075; stdDevCore = s.stdDevCore || 0.12; cashYield = s.cashYield || 0.0329; 
             inflationRate = s.inflationRate;
@@ -1332,6 +1339,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
             document.getElementById('input-salary').value = salary; document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`;
             document.getElementById('input-savings-taxable').value = savingsTaxable;
             document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('input-savings-hsa').value = savingsHSA;
+            if(document.getElementById('input-savings-cash')) { document.getElementById('input-savings-cash').value = savingsCash; document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; }
             document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('input-core').value = coreCapital;
             document.getElementById('input-hsa-start').value = hsaStart;
             document.getElementById('input-cash-reserve').value = cashReserve; document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
@@ -1398,6 +1406,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function updateSavings401k(v) { savings401k = parseInt(v); document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsHSA(v) { savingsHSA = parseInt(v); document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
+        function updateSavingsCash(v) { savingsCash = parseInt(v); document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function snapHSALimit(v) { document.getElementById('input-savings-hsa').value = v; updateSavingsHSA(v); }
         function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; runMonteCarloSimulation(); }
         function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; runMonteCarloSimulation(); }
@@ -1417,7 +1426,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function updateInflation(v) { inflationRate = parseFloat(v)/100; document.getElementById('label-inflation').textContent = `${v}%`; runMonteCarloSimulation(); }
         
         function updateLabelElements() { 
-            let totalSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA;
+            let totalSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA + savingsCash;
             document.getElementById('label-total-savings').textContent = `Total: $${totalSavings.toLocaleString()}/yr`; 
             
             let deficitWarning = document.getElementById('warning-deficit');
