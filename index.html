@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.6.0.4</title>
+    <title>Beardzley Retirement Simulator v.6.1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.0.4</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.1.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -199,7 +199,11 @@
                         <label class="text-xs text-slate-300">Roth IRA / Backdoor (Core)</label>
                         <span id="label-savings-roth" class="text-xs font-mono font-bold text-purple-400">$0/yr</span>
                     </div>
-                    <input type="range" id="input-savings-roth" min="0" max="7500" step="500" value="0" oninput="updateSavingsRoth(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                    <input type="range" id="input-savings-roth" min="0" max="7500" step="100" value="0" oninput="updateSavingsRoth(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                    <div class="flex gap-1.5 mt-1.5">
+                        <button onclick="snapRothLimit(7500)" class="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-purple-400 px-2 py-0.5 rounded">Standard ($7.5k)</button>
+                        <button onclick="snapRothLimit(8600)" class="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-purple-400 px-2 py-0.5 rounded">Age 50+ Catch-up ($8.6k)</button>
+                    </div>
                 </div>
 
                 <div>
@@ -1531,6 +1535,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function updateSavingsHSA(v) { savingsHSA = parseInt(v); document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsCash(v) { savingsCash = parseInt(v); document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function snapHSALimit(v) { document.getElementById('input-savings-hsa').value = v; updateSavingsHSA(v); }
+        function snapRothLimit(v) { const rothInput = document.getElementById('input-savings-roth');rothInput.max = v === 8600 ? 8600 : 7500; rothInput.value = v; updateSavingsRoth(v);}
         function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; runMonteCarloSimulation(); }
         function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; runMonteCarloSimulation(); }
         function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; runMonteCarloSimulation(); }
