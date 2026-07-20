@@ -101,7 +101,7 @@
 
                 <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
                     <span class="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1">
-                        <span class="material-icons text-xs text-cyan-400">event_upcoming</span> NW at Ret. (Age <span id="panel-ret-age-label">45</span>)
+                        <span class="material-icons text-xs text-cyan-400">event_upcoming</span> Net Worth at Retirement (<span id="panel-ret-age-label">45</span>)
                     </span>
                     <span id="panel-projected-net-worth" class="text-base font-mono font-bold text-cyan-400">$0</span>
                 </div>
@@ -220,7 +220,7 @@
 
                 <div>
                     <div class="flex justify-between items-center mb-0.5">
-                        <label class="text-xs text-slate-300">Cash Reserves (HYSA/CDs)</label>
+                        <label class="text-xs text-slate-300">Cash Reserves</label>
                         <span id="label-savings-cash" class="text-xs font-mono font-bold text-amber-400">$0/yr</span>
                     </div>
                     <input type="range" id="input-savings-cash" min="0" max="60000" step="1000" value="0" oninput="updateSavingsCash(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
@@ -1426,7 +1426,7 @@ SAVINGS INJECTION VELOCITY
 * Total Annual Contributions:   $${totalAnnualSavings.toLocaleString()}/yr
   - Taxable Brokerage:          $${savingsTaxable.toLocaleString()}/yr
   - Core Accounts (401k/IRA/HSA):$${(savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr
-  - Cash Reserves (HYSA/CDs):   $${savingsCash.toLocaleString()}/yr
+  - Cash Reserves:              $${savingsCash.toLocaleString()}/yr
 * Active Debt Payment:          $${debtPayment.toLocaleString()}/yr
 
 HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
