@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.6.0.1</title>
+    <title>Beardzley Retirement Simulator v.6.0.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.0.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.0.2</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -1320,8 +1320,13 @@
 
         function renderDrawdownChart(res) {
             const ctx = document.getElementById('drawdownChart').getContext('2d');
+            
+            // Calculate where the retirement data actually begins
+            let offsetIndex = Math.max(0, retirementAge - startAge);
+            
+            // Build timeline starting from retirement age
             let timeline = [];
-            for (let a = startAge; a <= endAge; a++) timeline.push(a);
+            for (let a = retirementAge; a <= endAge; a++) timeline.push(a);
 
             if (drawdownChartInstance) drawdownChartInstance.destroy();
             
@@ -1330,10 +1335,11 @@
                 data: {
                     labels: timeline,
                     datasets: [
-                        { label: 'HSA', data: res.drawdownHsa, backgroundColor: '#a855f7', stack: 'Stack 0' },
-                        { label: 'Cash Reserves', data: res.drawdownCash, backgroundColor: '#f59e0b', stack: 'Stack 0' },
-                        { label: 'Bridge (Taxable)', data: res.drawdownBridge, backgroundColor: '#3b82f6', stack: 'Stack 0' },
-                        { label: 'Core (401k/IRA)', data: res.drawdownCore, backgroundColor: '#10b981', stack: 'Stack 0' }
+                        // Slice the arrays to remove the pre-retirement years
+                        { label: 'HSA', data: res.drawdownHsa.slice(offsetIndex), backgroundColor: '#a855f7', stack: 'Stack 0' },
+                        { label: 'Cash Reserves', data: res.drawdownCash.slice(offsetIndex), backgroundColor: '#f59e0b', stack: 'Stack 0' },
+                        { label: 'Bridge (Taxable)', data: res.drawdownBridge.slice(offsetIndex), backgroundColor: '#3b82f6', stack: 'Stack 0' },
+                        { label: 'Core (401k/IRA)', data: res.drawdownCore.slice(offsetIndex), backgroundColor: '#10b981', stack: 'Stack 0' }
                     ]
                 },
                 options: {
