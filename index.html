@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.6.1.0</title>
+    <title>Beardzley Retirement Simulator v.6.1.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.1.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.1.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -200,9 +200,9 @@
                         <span id="label-savings-roth" class="text-xs font-mono font-bold text-purple-400">$0/yr</span>
                     </div>
                     <input type="range" id="input-savings-roth" min="0" max="7500" step="100" value="0" oninput="updateSavingsRoth(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
-                    <div class="flex gap-1.5 mt-1.5">
-                        <button onclick="snapRothLimit(7500)" class="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-purple-400 px-2 py-0.5 rounded">Standard ($7.5k)</button>
-                        <button onclick="snapRothLimit(8600)" class="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-purple-400 px-2 py-0.5 rounded">Age 50+ Catch-up ($8.6k)</button>
+                    <div class="flex items-center justify-between mt-2 bg-slate-900/50 p-2 rounded-lg border border-slate-800/80">
+                        <label for="toggle-roth-catchup" class="text-[10px] font-medium text-slate-400 cursor-pointer">Auto-apply $1,100 catch-up at Age 50+</label>
+                        <input type="checkbox" id="toggle-roth-catchup" onchange="runMonteCarloSimulation()" class="accent-purple-500 cursor-pointer w-3.5 h-3.5 rounded bg-slate-800 border-slate-700">
                     </div>
                 </div>
 
@@ -671,6 +671,10 @@
                         const annualReturnCore = d.meanReturnCore + (d.stdDevCore * correlatedT2);
                         if (age < d.retirementAge) {
                             const netBridgeReturn = annualReturnBridge - 0.003;
+                            let activeRoth = d.savingsRoth;
+                            if (d.rothCatchUp && age >= 50) {
+                                activeRoth += 1100;
+                            }
                             currentBridge = (currentBridge + d.savingsTaxable) * (1 + netBridgeReturn);
                             currentCore = (currentCore + d.savings401k + d.savingsRoth) * (1 + annualReturnCore);
                             currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
@@ -970,7 +974,9 @@
             if (simTimeout) clearTimeout(simTimeout);
             
             simTimeout = setTimeout(() => {
-                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment };
+                const rothCatchUp = document.getElementById('toggle-roth-catchup')?.checked || false;
+                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment };
+                
                 if (!simWorker) initWorker();
                 simWorker.postMessage(simulationConfig);
             }, 150);
