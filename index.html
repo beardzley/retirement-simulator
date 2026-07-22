@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.6.3.1</title>
+    <title>Beardzley Retirement Simulator v.6.4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.3.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.4.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -372,7 +372,7 @@
                         <input type="range" id="input-vol-bridge" min="5" max="30" step="1.0" value="18.0" oninput="updateVolBridge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                     </div>
                     <div class="flex items-center justify-between mt-4 bg-slate-950/50 p-2 rounded-lg border border-slate-800/80">
-                        <label for="toggle-bridge-derisk" class="text-[10px] font-medium text-slate-400 cursor-pointer">De-risk at Age 55</label>
+                        <label id="label-bridge-derisk" for="toggle-bridge-derisk" class="text-[10px] font-medium text-slate-400 cursor-pointer">De-risk at Retirement Target Age</label>
                         <input type="checkbox" id="toggle-bridge-derisk" onchange="runMonteCarloSimulation()" class="accent-emerald-500 cursor-pointer w-3.5 h-3.5 rounded bg-slate-800 border-slate-700">
                     </div>
                 </div>
@@ -684,7 +684,7 @@
                         let currentMeanBridge = d.meanReturnBridge;
                         let currentVolBridge = d.stdDevBridge;
                         
-                        if (d.bridgeDerisk && age >= 55) {
+                        if (d.bridgeDerisk && age >= d.retirementAge) {
                             currentMeanBridge = 0.045; // 4.5% Conservative Return 
                             currentVolBridge = 0.035;  // 3.5% Low Volatility (Bonds/Treasuries)
                         }
@@ -1536,9 +1536,20 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
                     btn.className = "py-2 text-xs rounded-lg text-slate-600 bg-slate-900 opacity-50 cursor-not-allowed";
                     btn.disabled = true;
                 } else {
-                    btn.className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800";
-                    btn.disabled = false;
-                }
+            toggle5515El.disabled = true;
+            toggle5515El.checked = false;
+            rule5515 = false;
+            if (label5515Text) label5515Text.classList.add('opacity-40');
+        }
+        
+        // Add your new dynamic label update here
+        const deriskLabel = document.getElementById('label-bridge-derisk');
+        if (deriskLabel) {
+            deriskLabel.textContent = `De-risk at Age ${age}`;
+        }
+
+        runMonteCarloSimulation();
+    }
             }); 
 
             const toggle5515El = document.getElementById('toggle-5515');
