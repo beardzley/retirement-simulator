@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.6.4.0</title>
+    <title>Beardzley Retirement Simulator v.6.4.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.4.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.4.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -1528,28 +1528,40 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
         
         function setRetirementAge(age) { 
-            if (age < startAge) return;
-            retirementAge = age; 
-            [45, 50, 55, 62, 67].forEach(b => { 
-                let btn = document.getElementById(`btn-age-${b}`);
-                if (b < startAge) {
-                    btn.className = "py-2 text-xs rounded-lg text-slate-600 bg-slate-900 opacity-50 cursor-not-allowed";
-                    btn.disabled = true;
-                } else {
-            toggle5515El.disabled = true;
-            toggle5515El.checked = false;
-            rule5515 = false;
-            if (label5515Text) label5515Text.classList.add('opacity-40');
+    if (age < startAge) return;
+    retirementAge = age; 
+    
+    [45, 50, 55, 62, 67].forEach(b => { 
+        let btn = document.getElementById(`btn-age-${b}`);
+        if (b < startAge) {
+            btn.className = "py-2 text-xs rounded-lg text-slate-600 bg-slate-900 opacity-50 cursor-not-allowed";
+            btn.disabled = true;
+        } else {
+            btn.className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800";
+            btn.disabled = false;
         }
-        
-        // Add your new dynamic label update here
-        const deriskLabel = document.getElementById('label-bridge-derisk');
-        if (deriskLabel) {
-            deriskLabel.textContent = `De-risk at Age ${age}`;
-        }
+    }); 
 
-        runMonteCarloSimulation();
+    const toggle5515El = document.getElementById('toggle-5515');
+    const label5515Text = document.getElementById('label-5515-text');
+    
+    if (age === 55) {
+        toggle5515El.disabled = false;
+        if (label5515Text) label5515Text.classList.remove('opacity-40');
+    } else {
+        toggle5515El.disabled = true;
+        toggle5515El.checked = false;
+        rule5515 = false;
+        if (label5515Text) label5515Text.classList.add('opacity-40');
     }
+    
+    const deriskLabel = document.getElementById('label-bridge-derisk');
+    if (deriskLabel) {
+        deriskLabel.textContent = `De-risk at Age ${age}`;
+    }
+
+    runMonteCarloSimulation();
+}
             }); 
 
             const toggle5515El = document.getElementById('toggle-5515');
