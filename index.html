@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.6.5.0</title>
+    <title>Beardzley Retirement Simulator v.6.6.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.5.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.6.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -135,16 +135,13 @@
                 </div>
 
                 <div>
-                    <label class="text-sm font-medium text-slate-300 block mb-2">Retirement Target Age</label>
-                    <div class="grid grid-cols-5 gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-center font-semibold">
-                        <button onclick="setRetirementAge(45)" id="btn-age-45" class="py-2 text-xs rounded-lg transition-all">45</button>
-                        <button onclick="setRetirementAge(50)" id="btn-age-50" class="py-2 text-xs rounded-lg transition-all">50</button>
-                        <button onclick="setRetirementAge(55)" id="btn-age-55" class="py-2 text-xs rounded-lg transition-all">55</button>
-                        <button onclick="setRetirementAge(62)" id="btn-age-62" class="py-2 text-xs rounded-lg transition-all">62</button>
-                        <button onclick="setRetirementAge(67)" id="btn-age-67" class="py-2 text-xs rounded-lg transition-all">67</button>
-                    </div>
-                    <p class="text-[11px] text-slate-400 mt-2" id="timeline-explainer">Currently age 37. Simulating until age 90.</p>
-                </div>
+                    <div class="flex justify-between items-center mb-1">
+                      <label class="text-sm font-medium text-slate-300">Retirement Target Age</label>
+                      <span id="label-retirement-age" class="text-sm font-mono font-bold text-cyan-400">45</span>
+                   </div>
+                   <input type="range" id="input-retirement-age" min="45" max="67" step="1" value="45" oninput="setRetirementAge(parseInt(this.value))" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                   <p class="text-[11px] text-slate-400 mt-2" id="timeline-explainer">Simulating until age 90.</p>
+                  </div>
 
                 <div class="pt-3 flex items-center justify-between">
                     <label id="label-5515-text" for="toggle-5515" class="text-xs font-medium text-slate-300 flex items-center gap-2 cursor-pointer transition-opacity">
@@ -1541,40 +1538,49 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
         
         function setRetirementAge(age) { 
-            if (age < startAge) return;
-            retirementAge = age; 
-            
-            [45, 50, 55, 62, 67].forEach(b => { 
-                let btn = document.getElementById(`btn-age-${b}`);
-                if (b < startAge) {
-                    btn.className = "py-2 text-xs rounded-lg text-slate-600 bg-slate-900 opacity-50 cursor-not-allowed";
-                    btn.disabled = true;
-                } else {
-                    btn.className = b === age ? "py-2 text-xs rounded-lg bg-emerald-600 text-white font-bold shadow-md border border-emerald-500/20" : "py-2 text-xs rounded-lg text-slate-400 hover:text-white hover:bg-slate-800";
-                    btn.disabled = false;
-                }
-            }); 
+    if (age < startAge) return;
+    retirementAge = age; 
 
-            const toggle5515El = document.getElementById('toggle-5515');
-            const label5515Text = document.getElementById('label-5515-text');
-            
-            if (age === 55) {
-                toggle5515El.disabled = false;
-                if (label5515Text) label5515Text.classList.remove('opacity-40');
-            } else {
-                toggle5515El.disabled = true;
-                toggle5515El.checked = false;
-                rule5515 = false;
-                if (label5515Text) label5515Text.classList.add('opacity-40');
-            }
-            
-            const deriskLabel = document.getElementById('label-bridge-derisk');
-            if (deriskLabel) {
-                deriskLabel.textContent = `De-risk at Age ${age}`;
-            }
+    // 1. Dynamic slider validation
+    const sliderInput = document.getElementById('input-retirement-age');
+    const sliderLabel = document.getElementById('label-retirement-age');
 
-            runMonteCarloSimulation();
+    if (sliderInput && sliderLabel) {
+        // Force the slider value to match the valid age
+        sliderInput.value = age;
+        sliderLabel.textContent = age;
+
+        // Dynamically shift the slider's minimum boundary based on your current age
+        if (startAge > 45) {
+            sliderInput.min = Math.min(startAge, 67);
+        } else {
+            sliderInput.min = 45;
         }
+    }
+
+    // 2. 55/15 Exemption Logic
+    const toggle5515El = document.getElementById('toggle-5515');
+    const label5515Text = document.getElementById('label-5515-text');
+    
+    if (age === 55) {
+        toggle5515El.disabled = false;
+        if (label5515Text) label5515Text.classList.remove('opacity-40');
+    } else {
+        toggle5515El.disabled = true;
+        toggle5515El.checked = false;
+        rule5515 = false;
+        if (label5515Text) label5515Text.classList.add('opacity-40');
+    }
+    
+    // 3. De-risk Label Update
+    const deriskLabel = document.getElementById('label-bridge-derisk');
+    if (deriskLabel) {
+        deriskLabel.textContent = `De-risk at Age ${age}`;
+    }
+
+    // 4. Trigger the simulation with the new age
+    runMonteCarloSimulation();
+}
 
         function toggle5515(v) { rule5515 = v; runMonteCarloSimulation(); }
         function toggleDynamicSpend(v) { dynamicSpending = v; runMonteCarloSimulation(); }
