@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.0.8</title>
+    <title>Beardzley Retirement Simulator v.9.0.9</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.0.8</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.0.9</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -625,35 +625,65 @@
     
     <script>
      const workerCode = `
+            const iterations = 10000;
+            const TWO_PI = 2.0 * Math.PI;
+            const MAX_YEARS = 75; // Safely covers timelines up to 75 years
+
+            const yearlyCombined = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
+            const yearlyBridge = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
+            const yearlyCore = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
+            const yearlyCash = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
+
+            const sumBrokeragePull = new Float32Array(MAX_YEARS);
+            const sumCorePull = new Float32Array(MAX_YEARS);
+            const sumCashPull = new Float32Array(MAX_YEARS);
+            const sumHsaPull = new Float32Array(MAX_YEARS);
+
+            const terminalCombinedValues = [];
+            const retirementCombinedValues = [];
+            const retirementBridgeValues = [];
+            const retirementCoreValues = [];
+            const retirementCashValues = [];
+            const lifetimeTaxValues = [];
+
+            const preCalcSpending = new Float32Array(MAX_YEARS);
+            const preCalcHealthPremium = new Float32Array(MAX_YEARS);
+            const preCalcLtcCost = new Float32Array(MAX_YEARS);
+            const preCalcPension = new Float32Array(MAX_YEARS);
+
             self.onmessage = function(e) {
                 const d = e.data;
-                const iterations = 10000;
-                const TWO_PI = 2.0 * Math.PI;
                 
+                // --- RESET STATE ON NEW EVENT ---
                 let lifetimeSuccessCount = 0;
                 let bridgeSuccessCount = 0;
                 let savedBy5515Count = 0;
-                
-                let terminalCombinedValues = [];
-                let retirementCombinedValues = [];
-                let retirementBridgeValues = [];
-                let retirementCoreValues = [];
-                let retirementCashValues = [];
-                let lifetimeTaxValues = [];
-
                 let yearsCount = d.endAge - d.startAge + 1;
-                let yearlyCombined = Array.from({length: yearsCount}, () => new Float32Array(iterations));
-                let yearlyBridge = Array.from({length: yearsCount}, () => new Float32Array(iterations));
-                let yearlyCore = Array.from({length: yearsCount}, () => new Float32Array(iterations));
-                let yearlyCash = Array.from({length: yearsCount}, () => new Float32Array(iterations));
-                let sumBrokeragePull = new Float32Array(yearsCount);
-                let sumCorePull = new Float32Array(yearsCount);
-                let sumCashPull = new Float32Array(yearsCount);
-                let sumHsaPull = new Float32Array(yearsCount);
-                let pensionPayout = 0, pensionStartAge = 55;
-
-                let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null, drawdownChartInstance = null, compositionChartInstance = null;
                 
+                // Truncate standard arrays
+                terminalCombinedValues.length = 0;
+                retirementCombinedValues.length = 0;
+                retirementBridgeValues.length = 0;
+                retirementCoreValues.length = 0;
+                retirementCashValues.length = 0;
+                lifetimeTaxValues.length = 0;
+                
+                // Zero-fill 1D summary arrays
+                sumBrokeragePull.fill(0, 0, yearsCount);
+                sumCorePull.fill(0, 0, yearsCount);
+                sumCashPull.fill(0, 0, yearsCount);
+                sumHsaPull.fill(0, 0, yearsCount);
+                
+                // Zero-fill 2D timeline arrays
+                for (let y = 0; y < yearsCount; y++) {
+                    yearlyCombined[y].fill(0);
+                    yearlyBridge[y].fill(0);
+                    yearlyCore[y].fill(0);
+                    yearlyCash[y].fill(0);
+                }
+
+                let pensionPayout = 0, pensionStartAge = 55;
+                let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null, drawdownChartInstance = null, compositionChartInstance = null;
                 function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, yearTaxBracket) {
                     const standardDeduction = yearTaxBracket.standardDeduction;
                     const ordBrackets = yearTaxBracket.ordBrackets;
