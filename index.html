@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.8.1.1</title>
+    <title>Beardzley Retirement Simulator v.9.0.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.8.1.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.0.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -563,6 +563,16 @@
                     </div>
                 </div>
 
+                <div class="bg-slate-950/40 border border-slate-800 rounded-3xl p-6 flex-1 flex flex-col min-h-[500px] max-h-[650px] mt-6">
+    <div class="flex justify-between items-center mb-6 border-b border-slate-800/80 pb-4">
+        <span class="text-xs font-bold text-slate-300 tracking-wider uppercase">Median Asset Composition</span>
+        <span class="text-xs text-slate-500 font-semibold">Portfolio Makeup Over Time</span>
+    </div>
+    <div class="relative flex-1">
+        <canvas id="compositionChart"></canvas>
+    </div>
+</div>
+                
             </div>
 
             <div class="w-full xl:w-[320px] flex-shrink-0 space-y-5">
@@ -642,6 +652,9 @@
                 let sumCashPull = new Float32Array(yearsCount);
                 let sumHsaPull = new Float32Array(yearsCount);
                 let pensionPayout = 0, pensionStartAge = 55;
+
+              
+                let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null, drawdownChartInstance = null, compositionChartInstance = null;
 
                 function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, age) {
                     let inflMult = Math.pow(1 + d.inflationRate, age - d.startAge);
@@ -1046,6 +1059,91 @@
         let simTimeout = null;
         let globalPlotData = { combined: [], bridge: [], core: [], cash: [] }, lastSimulatedMetrics = {};
         let ingestedRows = [];
+        function renderCompositionChart(res) {
+    const ctx = document.getElementById('compositionChart').getContext('2d');
+    
+    // Build timeline from current age to age 90
+    let timeline = [];
+    for (let a = startAge; a <= endAge; a++) timeline.push(a);
+
+    if (compositionChartInstance) compositionChartInstance.destroy();
+    
+    compositionChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timeline,
+            datasets: [
+                { 
+                    label: 'Cash Reserves', 
+                    data: res.plotCash[2], // Index 2 is the P50 Median path
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                    borderColor: '#f59e0b',
+                    borderWidth: 2,
+                    fill: true,
+                    pointRadius: 0,
+                    tension: 0.2,
+                    stack: 'Stack 0' // Stacking them on top of each other
+                },
+                { 
+                    label: 'Bridge (Taxable)', 
+                    data: res.plotBridge[2], 
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                    borderColor: '#3b82f6',
+                    borderWidth: 2,
+                    fill: true,
+                    pointRadius: 0,
+                    tension: 0.2,
+                    stack: 'Stack 0'
+                },
+                { 
+                    label: 'Core (401k/IRA)', 
+                    data: res.plotCore[2], 
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                    borderColor: '#10b981',
+                    borderWidth: 2,
+                    fill: true,
+                    pointRadius: 0,
+                    tension: 0.2,
+                    stack: 'Stack 0'
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
+                tooltip: {
+                    mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
+                    callbacks: {
+                        label: (context) => {
+                            let val = context.raw;
+                            if (val <= 0) return null; // Hide $0 lines in the hover box
+                            return `${context.dataset.label}: $${Math.round(val).toLocaleString()}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
+                y: { 
+                    stacked: true, 
+                    grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
+                    ticks: { 
+                        color: '#64748b', 
+                        font: { size: 10 }, 
+                        callback: (val) => {
+                            if (val >= 10000000) return '$10M+';
+                            if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
+                            if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'k';
+                            return '$' + val;
+                        } 
+                    } 
+                }
+            },
+            interaction: { mode: 'index', intersect: false }
+        }
+    });
+}
         
         function initWorker() {
             const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -1060,6 +1158,7 @@
                 updateDOMMetrics(res);
                 renderChartData();
                 renderDrawdownChart(res);
+                renderCompositionChart(res);
             };
         }
 
