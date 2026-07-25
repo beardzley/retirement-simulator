@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.2.0</title>
+    <title>Beardzley Retirement Simulator v.9.2.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.2.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.2.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -1671,17 +1671,23 @@
             }, 3000);
         }
 
-        function exportSummaryData() {
-            const saveStateObj = {
-                startAge, retirementAge, salary, savingsTaxable, savings401k, 
-                savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, 
-                coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, 
-                meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, 
-                healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, 
-                dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge
+        function getFullStateObject() {
+            return {
+                startAge, retirementAge, salary, 
+                savingsTaxable, savings401k, employerMatch, megaBackdoor, savingsRoth, savingsHSA, savingsCash,
+                lock401k, lockMatch, lockMega,
+                rothCatchUp: document.getElementById('toggle-roth-catchup')?.checked || false,
+                bridgeDerisk: document.getElementById('toggle-bridge-derisk')?.checked || false,
+                spending, bridgeCapital, coreCapital, hsaStart, cashReserve, 
+                meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, 
+                cashYield, inflationRate, medInflationRate, 
+                healthPremium, socialSecurity, pensionPayout, pensionStartAge, ltcCost, stateTaxRate, 
+                rule5515, dynamicSpending, debtStart, debtRate, debtPayment
             };
-            
-            // 2. Turn it into a compact, encrypted-looking string (Base64 code)
+        }
+
+        function exportSummaryData() {
+            const saveStateObj = getFullStateObject();
             const serializedSaveCode = btoa(JSON.stringify(saveStateObj));
 
             const totalAnnualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA + savingsCash;
@@ -1737,9 +1743,11 @@ HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
         }
 
         function saveCurrentAsBaseline() {
-            const state = { startAge, retirementAge, salary, savingsTaxable, savings401k, savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment };
-            savedBaseline = state; safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
-            showNotification("Your structural configuration baseline is locked!"); updateBaselineButtons();
+            const state = getFullStateObject();
+            savedBaseline = state; 
+            safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
+            showNotification("Your structural configuration baseline is locked!"); 
+            updateBaselineButtons();
         }
 
         function loadUserBaseline() {
@@ -1749,48 +1757,187 @@ HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
 
         function applyState(s) {
             startAge = s.startAge;
-            retirementAge = s.retirementAge; salary = s.salary !== undefined ? s.salary : 150000;
-            savingsTaxable = s.savingsTaxable; savings401k = s.savings401k;
-            savingsRoth = s.savingsRoth; savingsHSA = s.savingsHSA; savingsCash = s.savingsCash || 0; spending = s.spending;
-            bridgeCapital = s.bridgeCapital; coreCapital = s.coreCapital;
-            hsaStart = s.hsaStart || 0; cashReserve = s.cashReserve || 0; meanReturnBridge = s.meanReturnBridge || 0.08; 
+            retirementAge = s.retirementAge; 
+            salary = s.salary !== undefined ? s.salary : 150000;
+            
+            savingsTaxable = s.savingsTaxable || 0; 
+            savings401k = s.savings401k || 0;
+            employerMatch = s.employerMatch || 0;
+            megaBackdoor = s.megaBackdoor || 0;
+            savingsRoth = s.savingsRoth || 0; 
+            savingsHSA = s.savingsHSA || 0; 
+            savingsCash = s.savingsCash || 0; 
+            
+            lock401k = s.lock401k || false;
+            lockMatch = s.lockMatch || false;
+            lockMega = s.lockMega || false;
+
+            spending = s.spending;
+            bridgeCapital = s.bridgeCapital || 0; 
+            coreCapital = s.coreCapital || 0;
+            hsaStart = s.hsaStart || 0; 
+            cashReserve = s.cashReserve || 0; 
+            
+            meanReturnBridge = s.meanReturnBridge || 0.08; 
             stdDevBridge = s.stdDevBridge || 0.18;
-            meanReturnCore = s.meanReturnCore || 0.07; stdDevCore = s.stdDevCore || 0.12; cashYield = s.cashYield || 0.0329; 
-            inflationRate = s.inflationRate;
-            healthPremium = s.healthPremium; socialSecurity = s.socialSecurity; ltcCost = s.ltcCost; stateTaxRate = s.stateTaxRate || 0;
-            medInflationRate = s.medInflationRate || 0.05;
+            meanReturnCore = s.meanReturnCore || 0.07; 
+            stdDevCore = s.stdDevCore || 0.12; 
+            
+            cashYield = s.cashYield !== undefined ? s.cashYield : 0.0329; 
+            inflationRate = s.inflationRate !== undefined ? s.inflationRate : 0.025;
+            medInflationRate = s.medInflationRate !== undefined ? s.medInflationRate : 0.05;
+            
+            healthPremium = s.healthPremium || 0; 
+            socialSecurity = s.socialSecurity || 0; 
+            pensionPayout = s.pensionPayout || 0;
+            pensionStartAge = s.pensionStartAge || 55;
+            ltcCost = s.ltcCost || 0; 
+            stateTaxRate = s.stateTaxRate || 0;
+            
             rule5515 = s.rule5515 || false;
-            debtStart = s.debtStart || 0; debtRate = s.debtRate !== undefined ? s.debtRate : 0.05;
+            dynamicSpending = s.dynamicSpending !== undefined ? s.dynamicSpending : true;
+            
+            debtStart = s.debtStart || 0; 
+            debtRate = s.debtRate !== undefined ? s.debtRate : 0.05;
             debtPayment = s.debtPayment || 0;
             
-            document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
-            document.getElementById('input-salary').value = salary; document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`;
-            document.getElementById('input-savings-taxable').value = savingsTaxable;
-            document.getElementById('input-savings-401k').value = savings401k; document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('input-savings-hsa').value = savingsHSA;
-            if(document.getElementById('input-savings-cash')) { document.getElementById('input-savings-cash').value = savingsCash; document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; }
-            document.getElementById('input-spending').value = spending; document.getElementById('input-bridge').value = bridgeCapital;
-            document.getElementById('input-core').value = coreCapital;
-            document.getElementById('input-hsa-start').value = hsaStart;
-            document.getElementById('input-cash-reserve').value = cashReserve; document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
-            document.getElementById('input-return-bridge').value = (meanReturnBridge*100).toFixed(1); document.getElementById('label-hsa-start').textContent = `$${hsaStart.toLocaleString()}`;
-            document.getElementById('input-vol-bridge').value = (stdDevBridge*100).toFixed(1);
-            document.getElementById('input-return-core').value = (meanReturnCore*100).toFixed(1); document.getElementById('input-vol-core').value = (stdDevCore*100).toFixed(1);
-            document.getElementById('input-cash-yield').value = (cashYield*100).toFixed(2); document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1);
-            document.getElementById('input-health').value = healthPremium;
-            document.getElementById('input-ss').value = socialSecurity;
-            document.getElementById('input-ltc').value = ltcCost;
+            // --- UI ELEMENT BINDINGS ---
+            // 1. Sliders & Values
+            document.getElementById('input-current-age').value = startAge; 
+            document.getElementById('label-current-age').textContent = startAge;
             
-            if(document.getElementById('input-state-tax')) { document.getElementById('input-state-tax').value = (stateTaxRate*100).toFixed(1); document.getElementById('label-state-tax').textContent = `${(stateTaxRate*100).toFixed(1)}%`; }
-            if(document.getElementById('input-med-inflation')) { document.getElementById('input-med-inflation').value = (medInflationRate*100).toFixed(1); document.getElementById('label-med-inflation').textContent = `${(medInflationRate*100).toFixed(1)}%`; }
+            document.getElementById('input-salary').value = salary; 
+            document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`;
             
-            if(document.getElementById('input-debt-start')) { document.getElementById('input-debt-start').value = debtStart; document.getElementById('label-debt-start').textContent = `$${debtStart.toLocaleString()}`; }
-            if(document.getElementById('input-debt-rate')) { document.getElementById('input-debt-rate').value = (debtRate*100).toFixed(1); document.getElementById('label-debt-rate').textContent = `${(debtRate*100).toFixed(1)}%`; }
-            if(document.getElementById('input-debt-payment')) { document.getElementById('input-debt-payment').value = debtPayment; document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; }
+            document.getElementById('input-savings-taxable').value = savingsTaxable; 
+            document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`;
+            
+            document.getElementById('input-savings-401k').value = savings401k; 
+            document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
+            
+            if(document.getElementById('input-employer-match')) { 
+                document.getElementById('input-employer-match').value = employerMatch; 
+                document.getElementById('label-employer-match').textContent = `$${employerMatch.toLocaleString()}/yr`; 
+            }
+            if(document.getElementById('input-mega-backdoor')) { 
+                document.getElementById('input-mega-backdoor').value = megaBackdoor; 
+                document.getElementById('label-mega-backdoor').textContent = `$${megaBackdoor.toLocaleString()}/yr`; 
+            }
+            
+            document.getElementById('input-savings-roth').value = savingsRoth; 
+            document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`;
+            
+            document.getElementById('input-savings-hsa').value = savingsHSA; 
+            document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`;
+            
+            if(document.getElementById('input-savings-cash')) { 
+                document.getElementById('input-savings-cash').value = savingsCash; 
+                document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; 
+            }
+            
+            document.getElementById('input-spending').value = spending; 
+            document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`;
+            
+            document.getElementById('input-bridge').value = bridgeCapital; 
+            document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
+            
+            document.getElementById('input-core').value = coreCapital; 
+            document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
+            
+            document.getElementById('input-hsa-start').value = hsaStart; 
+            document.getElementById('label-hsa-start').textContent = `$${hsaStart.toLocaleString()}`;
+            
+            document.getElementById('input-cash-reserve').value = cashReserve; 
+            document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
+            
+            document.getElementById('input-return-bridge').value = (meanReturnBridge*100).toFixed(1); 
+            document.getElementById('label-return-bridge').textContent = `${(meanReturnBridge*100).toFixed(1)}%`;
+            
+            document.getElementById('input-vol-bridge').value = (stdDevBridge*100).toFixed(1); 
+            document.getElementById('label-vol-bridge').textContent = `${(stdDevBridge*100).toFixed(1)}%`;
+            
+            document.getElementById('input-return-core').value = (meanReturnCore*100).toFixed(1); 
+            document.getElementById('label-return-core').textContent = `${(meanReturnCore*100).toFixed(1)}%`;
+            
+            document.getElementById('input-vol-core').value = (stdDevCore*100).toFixed(1); 
+            document.getElementById('label-vol-core').textContent = `${(stdDevCore*100).toFixed(1)}%`;
+            
+            document.getElementById('input-cash-yield').value = (cashYield*100).toFixed(2); 
+            document.getElementById('label-cash-yield').textContent = `${(cashYield*100).toFixed(2)}%`;
+            
+            document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1); 
+            document.getElementById('label-inflation').textContent = `${(inflationRate*100).toFixed(1)}%`;
+            
+            document.getElementById('input-health').value = healthPremium; 
+            document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`;
+            
+            document.getElementById('input-ss').value = socialSecurity; 
+            document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`;
+            
+            if(document.getElementById('input-pension-payout')) { 
+                document.getElementById('input-pension-payout').value = pensionPayout; 
+                document.getElementById('label-pension-payout').textContent = `$${pensionPayout.toLocaleString()}/yr`; 
+            }
+            if(document.getElementById('input-pension-age')) { 
+                document.getElementById('input-pension-age').value = pensionStartAge; 
+                document.getElementById('label-pension-age').textContent = pensionStartAge; 
+            }
+            
+            document.getElementById('input-ltc').value = ltcCost; 
+            document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`;
+            
+            if(document.getElementById('input-state-tax')) { 
+                document.getElementById('input-state-tax').value = (stateTaxRate*100).toFixed(1); 
+                document.getElementById('label-state-tax').textContent = `${(stateTaxRate*100).toFixed(1)}%`; 
+            }
+            if(document.getElementById('input-med-inflation')) { 
+                document.getElementById('input-med-inflation').value = (medInflationRate*100).toFixed(1); 
+                document.getElementById('label-med-inflation').textContent = `${(medInflationRate*100).toFixed(1)}%`; 
+            }
+            
+            if(document.getElementById('input-debt-start')) { 
+                document.getElementById('input-debt-start').value = debtStart; 
+                document.getElementById('label-debt-start').textContent = `$${debtStart.toLocaleString()}`; 
+            }
+            if(document.getElementById('input-debt-rate')) { 
+                document.getElementById('input-debt-rate').value = (debtRate*100).toFixed(1); 
+                document.getElementById('label-debt-rate').textContent = `${(debtRate*100).toFixed(1)}%`; 
+            }
+            if(document.getElementById('input-debt-payment')) { 
+                document.getElementById('input-debt-payment').value = debtPayment; 
+                document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; 
+            }
 
+            // 2. DOM Checkboxes & Visual Locks
             document.getElementById('toggle-5515').checked = rule5515;
             document.getElementById('toggle-dynamic-spend').checked = dynamicSpending;
+            if (document.getElementById('toggle-roth-catchup')) document.getElementById('toggle-roth-catchup').checked = s.rothCatchUp || false;
+            if (document.getElementById('toggle-bridge-derisk')) document.getElementById('toggle-bridge-derisk').checked = s.bridgeDerisk || false;
+
+            if (typeof enforce415cLimits === 'function') enforce415cLimits('none');
+
+            if(document.getElementById('icon-lock-401k')) {
+                document.getElementById('icon-lock-401k').textContent = lock401k ? 'lock' : 'lock_open';
+                document.getElementById('icon-lock-401k').className = lock401k ? 'material-icons text-[14px] text-cyan-400' : 'material-icons text-[14px]';
+                document.getElementById('input-savings-401k').disabled = lock401k;
+                document.getElementById('input-savings-401k').classList.toggle('opacity-40', lock401k);
+            }
+            if(document.getElementById('icon-lock-match')) {
+                document.getElementById('icon-lock-match').textContent = lockMatch ? 'lock' : 'lock_open';
+                document.getElementById('icon-lock-match').className = lockMatch ? 'material-icons text-[14px] text-emerald-400' : 'material-icons text-[14px]';
+                document.getElementById('input-employer-match').disabled = lockMatch;
+                document.getElementById('input-employer-match').classList.toggle('opacity-40', lockMatch);
+            }
+            if(document.getElementById('icon-lock-mega')) {
+                document.getElementById('icon-lock-mega').textContent = lockMega ? 'lock' : 'lock_open';
+                document.getElementById('icon-lock-mega').className = lockMega ? 'material-icons text-[14px] text-purple-400' : 'material-icons text-[14px]';
+                document.getElementById('input-mega-backdoor').disabled = lockMega;
+                document.getElementById('input-mega-backdoor').classList.toggle('opacity-40', lockMega);
+            }
+            
+            // 3. Trigger cascade logic
             updateLabelElements(); 
-            setRetirementAge(retirementAge);
+            setRetirementAge(retirementAge); 
         }
 
         function updateCurrentAge(v) { 
