@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.8.0.0</title>
+    <title>Beardzley Retirement Simulator v.8.1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.8.0.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.8.1.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -184,7 +184,8 @@
                     </div>
                     <input type="range" id="input-savings-taxable" min="0" max="120000" step="2500" value="0" oninput="updateSavingsTaxable(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
-               <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-4 mb-4 mt-2 shadow-inner">
+                
+                <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-4 mb-4 mt-2 shadow-inner">
     <div class="flex justify-between items-center border-b border-slate-800/80 pb-2">
         <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
             <span class="material-icons text-sm">business_center</span> 401(k) & Workplace Plans
@@ -194,7 +195,12 @@
 
     <div>
         <div class="flex justify-between items-center mb-1">
-            <label class="text-xs text-slate-300">Pre-Tax / Roth 401(k) <span class="text-[10px] text-slate-500">(Your Deduction)</span></label>
+            <div class="flex items-center gap-1.5">
+                <button onclick="toggleLock('401k')" class="text-slate-500 hover:text-cyan-400 transition-colors flex items-center" title="Lock this value">
+                    <span class="material-icons text-[14px]" id="icon-lock-401k">lock_open</span>
+                </button>
+                <label class="text-xs text-slate-300">Pre-Tax / Roth 401(k) <span class="text-[10px] text-slate-500">(Your Deduction)</span></label>
+            </div>
             <span id="label-savings-401k" class="text-xs font-mono font-bold text-cyan-400">$0/yr</span>
         </div>
         <input type="range" id="input-savings-401k" min="0" max="24500" step="500" value="0" oninput="updateSavings401k(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
@@ -202,15 +208,25 @@
 
     <div>
         <div class="flex justify-between items-center mb-1">
-            <label class="text-xs text-slate-300">Employer Match <span class="text-[10px] text-slate-500">(Free Money)</span></label>
+            <div class="flex items-center gap-1.5">
+                <button onclick="toggleLock('match')" class="text-slate-500 hover:text-emerald-400 transition-colors flex items-center" title="Lock this value">
+                    <span class="material-icons text-[14px]" id="icon-lock-match">lock_open</span>
+                </button>
+                <label class="text-xs text-slate-300">Employer Match <span class="text-[10px] text-slate-500">(Free Money)</span></label>
+            </div>
             <span id="label-employer-match" class="text-xs font-mono font-bold text-emerald-400">$0/yr</span>
         </div>
-        <input type="range" id="input-employer-match" min="0" max="40000" step="500" value="0" oninput="updateEmployerMatch(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+        <input type="range" id="input-employer-match" min="0" max="40000" step="250" value="0" oninput="updateEmployerMatch(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
     </div>
 
     <div>
         <div class="flex justify-between items-center mb-1">
-            <label class="text-xs text-slate-300">Mega-Backdoor Roth <span class="text-[10px] text-slate-500">(After-Tax)</span></label>
+            <div class="flex items-center gap-1.5">
+                <button onclick="toggleLock('mega')" class="text-slate-500 hover:text-purple-400 transition-colors flex items-center" title="Lock this value">
+                    <span class="material-icons text-[14px]" id="icon-lock-mega">lock_open</span>
+                </button>
+                <label class="text-xs text-slate-300">Mega-Backdoor Roth <span class="text-[10px] text-slate-500">(After-Tax)</span></label>
+            </div>
             <span id="label-mega-backdoor" class="text-xs font-mono font-bold text-purple-400">$0/yr</span>
         </div>
         <input type="range" id="input-mega-backdoor" min="0" max="47500" step="500" value="0" oninput="updateMegaBackdoor(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
@@ -228,6 +244,7 @@
         </div>
     </div>
 </div>
+               
                 <div>
                     <div class="flex justify-between items-center mb-0.5">
                         <label class="text-xs text-slate-300">Roth IRA / Backdoor (Core)</label>
@@ -1024,6 +1041,7 @@
         let debtStart = 0, debtRate = 0.05, debtPayment = 0;
         let pensionPayout = 0, pensionStartAge = 55;
         let employerMatch = 0, megaBackdoor = 0;
+        let lock401k = false, lockMatch = false, lockMega = false;
         let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null, drawdownChartInstance = null;
         let simTimeout = null;
         let globalPlotData = { combined: [], bridge: [], core: [], cash: [] }, lastSimulatedMetrics = {};
@@ -1670,35 +1688,49 @@ function updateMegaBackdoor(v) {
 function enforce415cLimits(activeSlider) {
     let total = savings401k + employerMatch + megaBackdoor;
     
-    // If the user breaches the $72k IRS limit, aggressively throttle the other sliders
+    // If the user breaches the $72k IRS limit, dynamically throttle
     if (total > 72000) {
         let excess = total - 72000;
         
         if (activeSlider === '401k') {
-            // Steal room from Mega-Backdoor first, then Match
-            if (megaBackdoor >= excess) { megaBackdoor -= excess; excess = 0; }
-            else { excess -= megaBackdoor; megaBackdoor = 0; }
-            if (excess > 0) { employerMatch -= excess; }
+            // Try to steal from Mega first (if unlocked), then Match (if unlocked)
+            if (!lockMega && excess > 0) { let steal = Math.min(megaBackdoor, excess); megaBackdoor -= steal; excess -= steal; }
+            if (!lockMatch && excess > 0) { let steal = Math.min(employerMatch, excess); employerMatch -= steal; excess -= steal; }
+            if (excess > 0) { savings401k -= excess; } // Bounce back if others are locked
             
         } else if (activeSlider === 'match') {
-            // Steal room from Mega-Backdoor first, then Base 401k
-            if (megaBackdoor >= excess) { megaBackdoor -= excess; excess = 0; }
-            else { excess -= megaBackdoor; megaBackdoor = 0; }
-            if (excess > 0) { savings401k -= excess; }
+            // Try to steal from Mega first (if unlocked), then Base 401k (if unlocked)
+            if (!lockMega && excess > 0) { let steal = Math.min(megaBackdoor, excess); megaBackdoor -= steal; excess -= steal; }
+            if (!lock401k && excess > 0) { let steal = Math.min(savings401k, excess); savings401k -= steal; excess -= steal; }
+            if (excess > 0) { employerMatch -= excess; }
             
         } else if (activeSlider === 'mega') {
-            // Steal room from Match first, then Base 401k
-            if (employerMatch >= excess) { employerMatch -= excess; excess = 0; }
-            else { excess -= employerMatch; employerMatch = 0; }
-            if (excess > 0) { savings401k -= excess; }
+            // Try to steal from Match first (if unlocked), then Base 401k (if unlocked)
+            if (!lockMatch && excess > 0) { let steal = Math.min(employerMatch, excess); employerMatch -= steal; excess -= steal; }
+            if (!lock401k && excess > 0) { let steal = Math.min(savings401k, excess); savings401k -= steal; excess -= steal; }
+            if (excess > 0) { megaBackdoor -= excess; }
         }
         
-        // Snap the DOM sliders back to their legally allowed maximums
+        // Snap the DOM sliders back to their legally allowed/locked maximums
         document.getElementById('input-savings-401k').value = savings401k;
         document.getElementById('input-employer-match').value = employerMatch;
         document.getElementById('input-mega-backdoor').value = megaBackdoor;
         total = 72000;
     }
+    
+    // Update all text labels
+    document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
+    document.getElementById('label-employer-match').textContent = `$${employerMatch.toLocaleString()}/yr`;
+    document.getElementById('label-mega-backdoor').textContent = `$${megaBackdoor.toLocaleString()}/yr`;
+    
+    // Paint the passive progress bar
+    document.getElementById('label-415c-total').textContent = `Total: $${total.toLocaleString()} / $72k`;
+    document.getElementById('label-415c-percent').textContent = `${Math.round((total / 72000) * 100)}%`;
+    
+    document.getElementById('bar-401k-base').style.width = `${(savings401k / 72000) * 100}%`;
+    document.getElementById('bar-401k-match').style.width = `${(employerMatch / 72000) * 100}%`;
+    document.getElementById('bar-401k-mega').style.width = `${(megaBackdoor / 72000) * 100}%`;
+}
     
     // Update all text labels
     document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
@@ -1756,6 +1788,28 @@ function enforce415cLimits(activeSlider) {
                 }
             }
         }
+
+        function toggleLock(target) {
+    if (target === '401k') {
+        lock401k = !lock401k;
+        document.getElementById('icon-lock-401k').textContent = lock401k ? 'lock' : 'lock_open';
+        document.getElementById('icon-lock-401k').className = lock401k ? 'material-icons text-[14px] text-cyan-400' : 'material-icons text-[14px]';
+        document.getElementById('input-savings-401k').disabled = lock401k;
+        document.getElementById('input-savings-401k').classList.toggle('opacity-40', lock401k);
+    } else if (target === 'match') {
+        lockMatch = !lockMatch;
+        document.getElementById('icon-lock-match').textContent = lockMatch ? 'lock' : 'lock_open';
+        document.getElementById('icon-lock-match').className = lockMatch ? 'material-icons text-[14px] text-emerald-400' : 'material-icons text-[14px]';
+        document.getElementById('input-employer-match').disabled = lockMatch;
+        document.getElementById('input-employer-match').classList.toggle('opacity-40', lockMatch);
+    } else if (target === 'mega') {
+        lockMega = !lockMega;
+        document.getElementById('icon-lock-mega').textContent = lockMega ? 'lock' : 'lock_open';
+        document.getElementById('icon-lock-mega').className = lockMega ? 'material-icons text-[14px] text-purple-400' : 'material-icons text-[14px]';
+        document.getElementById('input-mega-backdoor').disabled = lockMega;
+        document.getElementById('input-mega-backdoor').classList.toggle('opacity-40', lockMega);
+    }
+}
         
         function syncNetWorthSummaryPanel() { 
             let currentNW = cashReserve + bridgeCapital + coreCapital + hsaStart - debtStart;
