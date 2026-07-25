@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.6.6.0</title>
+    <title>Beardzley Retirement Simulator v.7.0.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.6.6.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.7.0.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -272,6 +272,22 @@
                     </div>
                     <input type="range" id="input-ss" min="0" max="4500" step="100" value="2500" oninput="updateSS(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
+
+                <div>
+                     <div class="flex justify-between items-center mb-1">
+                       <label class="text-sm font-medium text-slate-300">Pension Payout (Annual)</label>
+                       <span id="label-pension-payout" class="text-sm font-mono font-bold text-emerald-400">$0/yr</span>
+                    </div>
+                    <input type="range" id="input-pension-payout" min="0" max="100000" step="1000" value="0" oninput="updatePensionPayout(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                  </div>
+
+                  <div>
+                     <div class="flex justify-between items-center mb-1 mt-3">
+                     <label class="text-sm font-medium text-slate-300">Pension Start Age</label>
+                     <span id="label-pension-age" class="text-sm font-mono font-bold text-cyan-400">55</span>
+                  </div>
+                  <input type="range" id="input-pension-age" min="45" max="67" step="1" value="55" oninput="updatePensionAge(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+              </div>
 
                 <div>
                     <div class="flex justify-between items-center mb-1">
@@ -573,6 +589,7 @@
                 let sumCorePull = new Float32Array(yearsCount);
                 let sumCashPull = new Float32Array(yearsCount);
                 let sumHsaPull = new Float32Array(yearsCount);
+                let pensionPayout = 0, pensionStartAge = 55;
 
                 function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, age) {
                     let inflMult = Math.pow(1 + d.inflationRate, age - d.startAge);
@@ -721,6 +738,9 @@
                             if (age < 65) netNeed += currentHealthPremium;
                             if (age >= 60) netNeed += currentLtcCost;
                             if (age >= 67) netNeed = Math.max(0, netNeed - (d.socialSecurity * 12));
+                            if (age >= d.pensionStartAge) {
+                            let inflatedPension = d.pensionPayout * Math.pow(1 + d.inflationRate, age - d.startAge);
+                            netNeed = Math.max(0, netNeed - inflatedPension);
                             let annualInterest = currentCash * d.cashYield;
                             currentCash += annualInterest;
 
@@ -1595,6 +1615,8 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function snapBridgeReturn(v) { document.getElementById('input-return-bridge').value = v; updateReturnBridge(v);}
         function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; runMonteCarloSimulation(); }
         function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; runMonteCarloSimulation(); }
+        function updatePensionPayout(v) {pensionPayout = parseInt(v);document.getElementById('label-pension-payout').textContent = `$${pensionPayout.toLocaleString()}/yr`;runMonteCarloSimulation()}
+        function updatePensionAge(v) {pensionStartAge = parseInt(v);document.getElementById('label-pension-age').textContent = v;runMonteCarloSimulation();}
         function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; runMonteCarloSimulation(); }
         function updateStateTax(v) { stateTaxRate = parseFloat(v)/100; document.getElementById('label-state-tax').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation(); }
         function updateMedInflation(v) { medInflationRate = parseFloat(v)/100; document.getElementById('label-med-inflation').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation(); }
