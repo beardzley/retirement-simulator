@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.7.1.0</title>
+    <title>Beardzley Retirement Simulator v.8.0.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.7.1.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.8.0.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -184,15 +184,50 @@
                     </div>
                     <input type="range" id="input-savings-taxable" min="0" max="120000" step="2500" value="0" oninput="updateSavingsTaxable(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
                 </div>
+               <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-4 mb-4 mt-2 shadow-inner">
+    <div class="flex justify-between items-center border-b border-slate-800/80 pb-2">
+        <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span class="material-icons text-sm">business_center</span> 401(k) & Workplace Plans
+        </h3>
+        <span id="label-415c-total" class="text-[10px] font-mono font-bold text-slate-300 bg-slate-800 px-2 py-1 rounded border border-slate-700">Total: $0 / $72k</span>
+    </div>
 
-                <div>
-                    <div class="flex justify-between items-center mb-0.5">
-                        <label class="text-xs text-slate-300">401(k) (Core)</label>
-                        <span id="label-savings-401k" class="text-xs font-mono font-bold text-cyan-400">$0/yr</span>
-                    </div>
-                    <input type="range" id="input-savings-401k" min="0" max="72000" step="1000" value="0" oninput="updateSavings401k(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
-                </div>
+    <div>
+        <div class="flex justify-between items-center mb-1">
+            <label class="text-xs text-slate-300">Pre-Tax / Roth 401(k) <span class="text-[10px] text-slate-500">(Your Deduction)</span></label>
+            <span id="label-savings-401k" class="text-xs font-mono font-bold text-cyan-400">$0/yr</span>
+        </div>
+        <input type="range" id="input-savings-401k" min="0" max="24500" step="500" value="0" oninput="updateSavings401k(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+    </div>
 
+    <div>
+        <div class="flex justify-between items-center mb-1">
+            <label class="text-xs text-slate-300">Employer Match <span class="text-[10px] text-slate-500">(Free Money)</span></label>
+            <span id="label-employer-match" class="text-xs font-mono font-bold text-emerald-400">$0/yr</span>
+        </div>
+        <input type="range" id="input-employer-match" min="0" max="40000" step="500" value="0" oninput="updateEmployerMatch(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+    </div>
+
+    <div>
+        <div class="flex justify-between items-center mb-1">
+            <label class="text-xs text-slate-300">Mega-Backdoor Roth <span class="text-[10px] text-slate-500">(After-Tax)</span></label>
+            <span id="label-mega-backdoor" class="text-xs font-mono font-bold text-purple-400">$0/yr</span>
+        </div>
+        <input type="range" id="input-mega-backdoor" min="0" max="47500" step="500" value="0" oninput="updateMegaBackdoor(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500">
+    </div>
+
+    <div class="pt-2">
+        <div class="flex justify-between text-[9px] text-slate-500 font-bold mb-1.5 uppercase tracking-wider">
+            <span>IRS 415(c) Capacity Limit</span>
+            <span id="label-415c-percent">0%</span>
+        </div>
+        <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden flex border border-slate-800/50">
+            <div id="bar-401k-base" class="h-full bg-cyan-500 transition-all duration-300" style="width: 0%"></div>
+            <div id="bar-401k-match" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
+            <div id="bar-401k-mega" class="h-full bg-purple-500 transition-all duration-300" style="width: 0%"></div>
+        </div>
+    </div>
+</div>
                 <div>
                     <div class="flex justify-between items-center mb-0.5">
                         <label class="text-xs text-slate-300">Roth IRA / Backdoor (Core)</label>
@@ -712,7 +747,7 @@
                                 activeRoth += 1100;
                             }
                             currentBridge = (currentBridge + d.savingsTaxable) * (1 + netBridgeReturn);
-                            currentCore = (currentCore + d.savings401k + d.savingsRoth) * (1 + annualReturnCore);
+                            currentCore = (currentCore + d.savings401k + d.employerMatch + d.megaBackdoor + d.savingsRoth) * (1 + annualReturnCore);
                             currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
                             currentCash = (currentCash + d.savingsCash) * (1 + d.cashYield);
                             if (currentDebt > 0) {
@@ -988,6 +1023,7 @@
         let rule5515 = false, dynamicSpending = true;
         let debtStart = 0, debtRate = 0.05, debtPayment = 0;
         let pensionPayout = 0, pensionStartAge = 55;
+        let employerMatch = 0, megaBackdoor = 0;
         let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null, drawdownChartInstance = null;
         let simTimeout = null;
         let globalPlotData = { combined: [], bridge: [], core: [], cash: [] }, lastSimulatedMetrics = {};
@@ -1018,7 +1054,7 @@
             simTimeout = setTimeout(() => {
                 const rothCatchUp = document.getElementById('toggle-roth-catchup')?.checked || false;
                 const bridgeDerisk = document.getElementById('toggle-bridge-derisk')?.checked || false;
-                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, bridgeDerisk, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge };
+                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, bridgeDerisk, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge, employerMatch, megaBackdoor };
                 
                 if (!simWorker) initWorker();
                 simWorker.postMessage(simulationConfig);
@@ -1612,7 +1648,71 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         function toggleDynamicSpend(v) { dynamicSpending = v; runMonteCarloSimulation(); }
         function updateSalary(v) { salary = parseInt(v); document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`; updateLabelElements(); }
         function updateSavingsTaxable(v) { savingsTaxable = parseInt(v); document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
-        function updateSavings401k(v) { savings401k = parseInt(v); document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
+        // --- WORKPLACE PLANS: AUTO-THROTTLING LOGIC ---
+function updateSavings401k(v) {
+    savings401k = parseInt(v);
+    enforce415cLimits('401k');
+    runMonteCarloSimulation();
+}
+
+function updateEmployerMatch(v) {
+    employerMatch = parseInt(v);
+    enforce415cLimits('match');
+    runMonteCarloSimulation();
+}
+
+function updateMegaBackdoor(v) {
+    megaBackdoor = parseInt(v);
+    enforce415cLimits('mega');
+    runMonteCarloSimulation();
+}
+
+function enforce415cLimits(activeSlider) {
+    let total = savings401k + employerMatch + megaBackdoor;
+    
+    // If the user breaches the $72k IRS limit, aggressively throttle the other sliders
+    if (total > 72000) {
+        let excess = total - 72000;
+        
+        if (activeSlider === '401k') {
+            // Steal room from Mega-Backdoor first, then Match
+            if (megaBackdoor >= excess) { megaBackdoor -= excess; excess = 0; }
+            else { excess -= megaBackdoor; megaBackdoor = 0; }
+            if (excess > 0) { employerMatch -= excess; }
+            
+        } else if (activeSlider === 'match') {
+            // Steal room from Mega-Backdoor first, then Base 401k
+            if (megaBackdoor >= excess) { megaBackdoor -= excess; excess = 0; }
+            else { excess -= megaBackdoor; megaBackdoor = 0; }
+            if (excess > 0) { savings401k -= excess; }
+            
+        } else if (activeSlider === 'mega') {
+            // Steal room from Match first, then Base 401k
+            if (employerMatch >= excess) { employerMatch -= excess; excess = 0; }
+            else { excess -= employerMatch; employerMatch = 0; }
+            if (excess > 0) { savings401k -= excess; }
+        }
+        
+        // Snap the DOM sliders back to their legally allowed maximums
+        document.getElementById('input-savings-401k').value = savings401k;
+        document.getElementById('input-employer-match').value = employerMatch;
+        document.getElementById('input-mega-backdoor').value = megaBackdoor;
+        total = 72000;
+    }
+    
+    // Update all text labels
+    document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
+    document.getElementById('label-employer-match').textContent = `$${employerMatch.toLocaleString()}/yr`;
+    document.getElementById('label-mega-backdoor').textContent = `$${megaBackdoor.toLocaleString()}/yr`;
+    
+    // Paint the passive progress bar
+    document.getElementById('label-415c-total').textContent = `Total: $${total.toLocaleString()} / $72k`;
+    document.getElementById('label-415c-percent').textContent = `${Math.round((total / 72000) * 100)}%`;
+    
+    document.getElementById('bar-401k-base').style.width = `${(savings401k / 72000) * 100}%`;
+    document.getElementById('bar-401k-match').style.width = `${(employerMatch / 72000) * 100}%`;
+    document.getElementById('bar-401k-mega').style.width = `${(megaBackdoor / 72000) * 100}%`;
+}
         function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsHSA(v) { savingsHSA = parseInt(v); document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsCash(v) { savingsCash = parseInt(v); document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
