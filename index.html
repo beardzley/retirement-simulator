@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.0.5</title>
+    <title>Beardzley Retirement Simulator v.9.0.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.0.5</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.0.6</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -622,8 +622,7 @@
             </div>
         </section>
     </main>
-
-    <script>
+<script>
      const workerCode = `
             self.onmessage = function(e) {
                 const d = e.data;
@@ -646,16 +645,14 @@
                 let yearlyBridge = Array.from({length: yearsCount}, () => new Float32Array(iterations));
                 let yearlyCore = Array.from({length: yearsCount}, () => new Float32Array(iterations));
                 let yearlyCash = Array.from({length: yearsCount}, () => new Float32Array(iterations));
-
                 let sumBrokeragePull = new Float32Array(yearsCount);
                 let sumCorePull = new Float32Array(yearsCount);
                 let sumCashPull = new Float32Array(yearsCount);
                 let sumHsaPull = new Float32Array(yearsCount);
                 let pensionPayout = 0, pensionStartAge = 55;
 
-              
                 let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null, drawdownChartInstance = null, compositionChartInstance = null;
-
+                
                 function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, age) {
                     let inflMult = Math.pow(1 + d.inflationRate, age - d.startAge);
                     let standardDeduction = 16100 * inflMult;
@@ -669,16 +666,19 @@
                         { limit: 640600 * inflMult, rate: 0.35 },
                         { limit: Infinity, rate: 0.37 }
                     ];
+                    
                     const ltcgBrackets = [
                         { limit: 49450 * inflMult, rate: 0.00 },
                         { limit: 545500 * inflMult, rate: 0.15 },
                         { limit: Infinity, rate: 0.20 }
                     ];
+                    
                     let grossOrdinary = preTaxWithdrawn + cashInterest;
                     let taxableOrdinary = Math.max(0, grossOrdinary - standardDeduction);
                     let unusedDeduction = Math.max(0, standardDeduction - grossOrdinary);
                     let ordinaryTax = 0;
                     let prevLimit = 0;
+                    
                     for (let b of ordBrackets) {
                         if (taxableOrdinary > b.limit) {
                             ordinaryTax += (b.limit - prevLimit) * b.rate;
@@ -714,46 +714,40 @@
 
                     return ordinaryTax + ltcgTax + stateTax;
                 }
-// --- PRE-CALCULATE DETERMINISTIC TIMELINE VALUES ---
-const totalYears = d.endAge - d.startAge;
-const preCalcSpending = new Float32Array(totalYears);
-const preCalcHealthPremium = new Float32Array(totalYears);
-const preCalcLtcCost = new Float32Array(totalYears);
-const preCalcPension = new Float32Array(totalYears);
 
-let runningSpending = d.spending;
-let runningHealthPremium = d.healthPremium;
-let runningLtcCost = d.ltcCost;
+                const totalYears = d.endAge - d.startAge;
+                const preCalcSpending = new Float32Array(totalYears);
+                const preCalcHealthPremium = new Float32Array(totalYears);
+                const preCalcLtcCost = new Float32Array(totalYears);
+                const preCalcPension = new Float32Array(totalYears);
 
-for (let y = 0; y < totalYears; y++) {
-    const age = d.startAge + y;
-    
-    // Determine dynamic phase adjustments if enabled
-    let phaseMultiplier = 1.0;
-    if (d.dynamicSpending) {
-        if (age >= 60 && age < 75) phaseMultiplier = 0.80;
-        else if (age >= 75) phaseMultiplier = 0.90;
-    }
-    
-    // Core spending calculation
-    preCalcSpending[y] = runningSpending * phaseMultiplier;
-    
-    // Premium captures
-    preCalcHealthPremium[y] = (age < 65) ? runningHealthPremium : 0;
-    preCalcLtcCost[y] = (age >= 60) ? runningLtcCost : 0;
-    
-    // Pension tracking
-    if (age >= d.pensionStartAge) {
-        preCalcPension[y] = d.pensionPayout * Math.pow(1 + d.inflationRate, y);
-    } else {
-        preCalcPension[y] = 0;
-    }
-    
-    // Inflate baseline values for the next year index
-    runningSpending *= (1 + d.inflationRate);
-    runningHealthPremium *= (1 + d.medInflationRate);
-    runningLtcCost *= (1 + d.medInflationRate);
-}
+                let runningSpending = d.spending;
+                let runningHealthPremium = d.healthPremium;
+                let runningLtcCost = d.ltcCost;
+
+                for (let y = 0; y < totalYears; y++) {
+                    const age = d.startAge + y;
+                    let phaseMultiplier = 1.0;
+                    if (d.dynamicSpending) {
+                        if (age >= 60 && age < 75) phaseMultiplier = 0.80;
+                        else if (age >= 75) phaseMultiplier = 0.90;
+                    }
+                    
+                    preCalcSpending[y] = runningSpending * phaseMultiplier;
+                    preCalcHealthPremium[y] = (age < 65) ? runningHealthPremium : 0;
+                    preCalcLtcCost[y] = (age >= 60) ? runningLtcCost : 0;
+                    
+                    if (age >= d.pensionStartAge) {
+                        preCalcPension[y] = d.pensionPayout * Math.pow(1 + d.inflationRate, y);
+                    } else {
+                        preCalcPension[y] = 0;
+                    }
+                    
+                    runningSpending *= (1 + d.inflationRate);
+                    runningHealthPremium *= (1 + d.medInflationRate);
+                    runningLtcCost *= (1 + d.medInflationRate);
+                }
+
                 for (let i = 0; i < iterations; i++) {
                     let currentBridge = d.bridgeCapital;
                     let runLifetimeTax = 0;
@@ -762,9 +756,6 @@ for (let y = 0; y < totalYears; y++) {
                     let currentCash = d.cashReserve || 0;
                     let currentDebt = d.debtStart || 0;
                     
-                    let currentSpending = d.spending;
-                    let currentHealthPremium = d.healthPremium;
-                    let currentLtcCost = d.ltcCost;
                     let dynamicBasisRatio = 0.50;
                     let bridgeSurvivedTo60 = true;
                     let pathInsolvent = false;
@@ -793,10 +784,6 @@ for (let y = 0; y < totalYears; y++) {
                         const fatTailMultiplier = 1 / Math.sqrt(safeChiSq4 / 4) / Math.sqrt(2);
                         const t1 = z1 * fatTailMultiplier;
                         const t2 = z2 * fatTailMultiplier;
-
-                        const rho = 0.85;
-                        const correlatedT1 = t1;
-                        const correlatedT2 = (rho * t1) + (Math.sqrt(1 - Math.pow(rho, 2)) * t2);
 
                         const rho = 0.85;
                         const correlatedT1 = t1;
@@ -988,191 +975,6 @@ for (let y = 0; y < totalYears; y++) {
                         yearlyCash[yearIdx][i] = currentCash;
                         yearIdx++;
                     }
-                        
-                        // GLIDE PATH LOGIC
-                        let currentMeanBridge = d.meanReturnBridge;
-                        let currentVolBridge = d.stdDevBridge;
-                        
-                        if (d.bridgeDerisk && age >= d.retirementAge) {
-                            currentMeanBridge = 0.045; // 4.5% Conservative Return 
-                            currentVolBridge = 0.035;  // 3.5% Low Volatility (Bonds/Treasuries)
-                        }
-
-                        const annualReturnBridge = currentMeanBridge + (currentVolBridge * correlatedT1);
-                        const annualReturnCore = d.meanReturnCore + (d.stdDevCore * correlatedT2);
-                        if (age < d.retirementAge) {
-                            const netBridgeReturn = annualReturnBridge - 0.003;
-                            let activeRoth = d.savingsRoth;
-                            if (d.rothCatchUp && age >= 50) {
-                                activeRoth += 1100;
-                            }
-                            currentBridge = (currentBridge + d.savingsTaxable) * (1 + netBridgeReturn);
-                            currentCore = (currentCore + d.savings401k + d.employerMatch + d.megaBackdoor + d.savingsRoth) * (1 + annualReturnCore);
-                            currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
-                            currentCash = (currentCash + d.savingsCash) * (1 + d.cashYield);
-                            if (currentDebt > 0) {
-                                let actualPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
-                                currentDebt = (currentDebt * (1 + d.debtRate)) - actualPayment;
-                                if (currentDebt < 0) currentDebt = 0;
-                            }
-                        } else {
-                            let phaseMultiplier = 1.0;
-                            if (d.dynamicSpending) {
-                                if (age >= 60 && age < 75) phaseMultiplier = 0.80;
-                                else if (age >= 75) phaseMultiplier = 0.90;
-                            }
-
-                            let activeDebtPayment = 0;
-                            if (currentDebt > 0) {
-                                activeDebtPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
-                            }
-
-                            let netNeed = currentSpending * phaseMultiplier;
-                            netNeed += activeDebtPayment; // Force portfolio to cover liability obligation
-                            
-                            if (age < 65) netNeed += currentHealthPremium;
-                            if (age >= 60) netNeed += currentLtcCost;
-                            if (age >= 67) netNeed = Math.max(0, netNeed - (d.socialSecurity * 12));
-                            if (age >= d.pensionStartAge) {
-                            let inflatedPension = d.pensionPayout * Math.pow(1 + d.inflationRate, age - d.startAge);
-                            netNeed = Math.max(0, netNeed - inflatedPension);
-                            }   
-
-                           let annualInterest = currentCash * d.cashYield;
-                           currentCash += annualInterest;
-
-                           let rmdAmount = 0;
-                           if (age >= 73) {
-                           const rmdDivisors = {
-                           73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0,
-                           79: 21.1, 80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8,
-                           85: 16.0, 86: 15.2, 87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2
-                           };
-                           let divisor = rmdDivisors[age] || 12.2;
-                           rmdAmount = currentCore / divisor;
-                           }
-
-                            let estimatedTax = 0;
-                            let grossNeeded = netNeed + estimatedTax;
-                            let brokeragePull = 0;
-                            let cashPull = 0;
-                            let corePull = 0;
-                            let hsaPull = 0;
-                            let converged = false;
-                            
-                            for (let iter = 0; iter < 15; iter++) {
-                                let remGross = grossNeeded;
-                                remGross = Math.max(0, remGross - annualInterest);
-                                
-                                corePull = rmdAmount;
-                                let coreSatisfied = Math.min(remGross, corePull);
-                                remGross -= coreSatisfied;
-                                brokeragePull = Math.min(remGross, currentBridge);
-                                remGross -= brokeragePull;
-
-                                cashPull = Math.min(remGross, currentCash);
-                                remGross -= cashPull;
-                                let extraCorePull = Math.min(remGross, currentCore - corePull);
-                                corePull += extraCorePull;
-                                remGross -= extraCorePull;
-
-                                hsaPull = 0;
-                                if (age >= 65) {
-                                    hsaPull = Math.min(remGross, currentHSA);
-                                    remGross -= hsaPull;
-                                }
-
-                                if (remGross > 0) {
-                                    pathInsolvent = true;
-                                    break;
-                                }
-
-                                let corePenalty = 0;
-                                if (corePull > 0) {
-                                let is5515Eligible = (d.rule5515 && d.retirementAge >= 55 && age >= 55);
-                               if (age < 60 && !is5515Eligible) {
-                                corePenalty = corePull * 0.10;
-                                   }
-                                 }
-
-                                let actualTax = calculateAnnualTax(corePull + hsaPull, brokeragePull, dynamicBasisRatio, annualInterest, age) + corePenalty;
-                                if (Math.abs(actualTax - estimatedTax) < 1) {
-                                    estimatedTax = actualTax;
-                                    converged = true;
-                                    break;
-                                }
-                                estimatedTax = actualTax;
-                                grossNeeded = netNeed + estimatedTax;
-                            }
-                            
-                            runLifetimeTax += estimatedTax;
-                            if (pathInsolvent) {
-                                currentBridge = 0;
-                                currentCore = 0; 
-                                currentHSA = 0;
-                                currentCash = 0;
-                                
-                                for (let padAge = age; padAge < d.endAge; padAge++) {
-                                    yearlyCombined[yearIdx][i] = -currentDebt;
-                                    yearlyBridge[yearIdx][i] = 0;
-                                    yearlyCore[yearIdx][i] = 0;
-                                    yearlyCash[yearIdx][i] = 0;
-                                    yearIdx++;
-                                    // Keep compounding the unpaid debt
-                                    if (currentDebt > 0) {
-                                        currentDebt = currentDebt * (1 + d.debtRate);
-                                    }
-                                }
-                                break;
-                            }
-
-                            let totalGenerated = corePull + brokeragePull + cashPull + hsaPull + annualInterest;
-                            
-                            sumBrokeragePull[yearIdx] += brokeragePull;
-                            sumCorePull[yearIdx] += corePull;
-                            sumCashPull[yearIdx] += cashPull;
-                            sumHsaPull[yearIdx] += hsaPull;
-
-                            let excessCash = totalGenerated - (netNeed + estimatedTax);
-
-                            currentBridge -= brokeragePull;
-                            currentCash -= cashPull;
-                            currentCore -= corePull;
-                            currentHSA -= hsaPull;
-                            if (currentDebt > 0) {
-                                currentDebt = (currentDebt * (1 + d.debtRate)) - activeDebtPayment;
-                                if (currentDebt < 0) currentDebt = 0;
-                            }
-                            
-                            if (excessCash > 0) {
-                                currentCash += excessCash;
-                            }
-
-                            currentBridge *= (1 + annualReturnBridge);
-                            currentCore *= (1 + annualReturnCore);
-                            currentHSA *= (1 + annualReturnCore);
-                            dynamicBasisRatio = Math.max(0.20, dynamicBasisRatio * 0.99);
-                        }
-
-                        if (currentBridge < 0) currentBridge = 0;
-                        if (currentCore < 0) currentCore = 0;
-                        if (currentHSA < 0) currentHSA = 0;
-                        if (currentCash < 0) currentCash = 0;
-                        
-                        if (age === d.retirementAge - 1) {
-                            retirementCombinedValues.push(currentBridge + currentCore + currentHSA + currentCash - currentDebt);
-                            retirementBridgeValues.push(currentBridge);
-                            retirementCoreValues.push(currentCore);
-                            retirementCashValues.push(currentCash);
-                        }
-
-                        if (age === 59 && currentBridge <= 0) bridgeSurvivedTo60 = false;
-                        yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash - currentDebt;
-                        yearlyBridge[yearIdx][i] = currentBridge;
-                        yearlyCore[yearIdx][i] = currentCore;
-                        yearlyCash[yearIdx][i] = currentCash;
-                        yearIdx++;
-                    }
                     
                     lifetimeTaxValues.push(runLifetimeTax);
                     let totalRemainingAssets = currentBridge + currentCore + currentHSA + currentCash;
@@ -1189,6 +991,7 @@ for (let y = 0; y < totalYears; y++) {
                 let p10Bridge = [], p25Bridge = [], p50Bridge = [];
                 let p10Core = [], p25Core = [], p50Core = [];
                 let p10Cash = [], p25Cash = [], p50Cash = [];
+                
                 for (let y = 0; y < yearsCount; y++) {
                     let yearComb = yearlyCombined[y];
                     yearComb.sort();
@@ -1221,23 +1024,24 @@ for (let y = 0; y < totalYears; y++) {
                 lifetimeTaxValues.sort((a, b) => a - b);
                 
                 let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] ||
-                (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
+                    (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
                 
                 let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
                 let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
                 let inflatedHealthSpend = (d.retirementAge < 65) ?
-                (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
+                    (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
                 
                 let projectedDebt = d.debtStart;
                 for(let a = d.startAge; a < d.retirementAge; a++) {
                     if (projectedDebt > 0) projectedDebt = (projectedDebt * (1 + d.debtRate)) - Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate));
                 }
                 let activeDebtSpend = (projectedDebt > 0) ?
-                Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
+                    Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
                 
                 let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend + activeDebtSpend) / Math.max(medianRetAssets, 1)) * 100;
                 let isExceeded = rawWRate > 100 || medianRetAssets <= 0;
                 let wRate = Math.min(rawWRate, 100).toFixed(1);
+                
                 self.postMessage({
                     successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
                     bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
@@ -1270,6 +1074,7 @@ for (let y = 0; y < totalYears; y++) {
             getItem(key) { try { return window.localStorage ? window.localStorage.getItem(key) : null; } catch (e) { return null; } },
             setItem(key, val) { try { if (window.localStorage) window.localStorage.setItem(key, val); return true; } catch (e) { return false; } }
         };
+        
         let startAge = 37, retirementAge = 45, endAge = 90;
         let salary = 150000;
         let savingsTaxable = 0, savings401k = 0, savingsRoth = 0, savingsHSA = 0, savingsCash = 0;
@@ -1286,96 +1091,93 @@ for (let y = 0; y < totalYears; y++) {
         let simTimeout = null;
         let globalPlotData = { combined: [], bridge: [], core: [], cash: [] }, lastSimulatedMetrics = {};
         let ingestedRows = [];
+        
         function renderCompositionChart(res) {
-    const ctx = document.getElementById('compositionChart').getContext('2d');
-    
-    // Build timeline from current age to age 90
-    let timeline = [];
-    for (let a = startAge; a <= endAge; a++) timeline.push(a);
-
-    if (window.compositionChartInstance) {
-        window.compositionChartInstance.destroy();
-    }
-    
-    window.compositionChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: timeline,
-            datasets: [
-                { 
-                    label: 'Cash Reserves', 
-                    // 2. THE FIX: Force the worker data into standard arrays
-                    data: Array.from(res.plotCash[2] || []), 
-                    backgroundColor: 'rgba(245, 158, 11, 0.3)', 
-                    borderColor: '#f59e0b',
-                    borderWidth: 2,
-                    fill: true,
-                    pointRadius: 0,
-                    tension: 0.2,
-                    stack: 'Stack 0'
-                },
-                { 
-                    label: 'Bridge (Taxable)', 
-                    data: Array.from(res.plotBridge[2] || []), 
-                    backgroundColor: 'rgba(59, 130, 246, 0.3)', 
-                    borderColor: '#3b82f6',
-                    borderWidth: 2,
-                    fill: true,
-                    pointRadius: 0,
-                    tension: 0.2,
-                    stack: 'Stack 0'
-                },
-                { 
-                    label: 'Core (401k/IRA)', 
-                    data: Array.from(res.plotCore[2] || []), 
-                    backgroundColor: 'rgba(16, 185, 129, 0.3)', 
-                    borderColor: '#10b981',
-                    borderWidth: 2,
-                    fill: true,
-                    pointRadius: 0,
-                    tension: 0.2,
-                    stack: 'Stack 0'
-                }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
-                tooltip: {
-                    mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
-                    callbacks: {
-                        label: (context) => {
-                            let val = context.raw;
-                            if (val <= 0) return null;
-                            return `${context.dataset.label}: $${Math.round(val).toLocaleString()}`;
+            const ctx = document.getElementById('compositionChart').getContext('2d');
+            let timeline = [];
+            for (let a = startAge; a <= endAge; a++) timeline.push(a);
+            if (window.compositionChartInstance) {
+                window.compositionChartInstance.destroy();
+            }
+            
+            window.compositionChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeline,
+                    datasets: [
+                        { 
+                            label: 'Cash Reserves', 
+                            data: Array.from(res.plotCash[2] || []), 
+                            backgroundColor: 'rgba(245, 158, 11, 0.3)', 
+                            borderColor: '#f59e0b',
+                            borderWidth: 2,
+                            fill: true,
+                            pointRadius: 0,
+                            tension: 0.2,
+                            stack: 'Stack 0'
+                        },
+                        { 
+                            label: 'Bridge (Taxable)', 
+                            data: Array.from(res.plotBridge[2] || []), 
+                            backgroundColor: 'rgba(59, 130, 246, 0.3)', 
+                            borderColor: '#3b82f6',
+                            borderWidth: 2,
+                            fill: true,
+                            pointRadius: 0,
+                            tension: 0.2,
+                            stack: 'Stack 0'
+                        },
+                        { 
+                            label: 'Core (401k/IRA)', 
+                            data: Array.from(res.plotCore[2] || []), 
+                            backgroundColor: 'rgba(16, 185, 129, 0.3)', 
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            fill: true,
+                            pointRadius: 0,
+                            tension: 0.2,
+                            stack: 'Stack 0'
                         }
-                    }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
+                        tooltip: {
+                            mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
+                            callbacks: {
+                                label: (context) => {
+                                    let val = context.raw;
+                                    if (val <= 0) return null;
+                                    return `${context.dataset.label}: $${Math.round(val).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
+                        y: { 
+                            stacked: true, 
+                            beginAtZero: true,          
+                            suggestedMax: 1000000,      
+                            grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
+                            ticks: { 
+                                color: '#64748b', 
+                                font: { size: 10 }, 
+                                callback: (val) => {
+                                    if (val >= 10000000) return '$10M+';
+                                    if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
+                                    if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'k';
+                                    return '$' + val;
+                                } 
+                            } 
+                        }
+                    },
+                    interaction: { mode: 'index', intersect: false }
                 }
-            },
-            scales: {
-                x: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
-                y: { 
-                    stacked: true, 
-                    beginAtZero: true,          
-                    suggestedMax: 1000000,      
-                    grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
-                    ticks: { 
-                        color: '#64748b', 
-                        font: { size: 10 }, 
-                        callback: (val) => {
-                            if (val >= 10000000) return '$10M+';
-                            if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
-                            if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'k';
-                            return '$' + val;
-                        } 
-                    } 
-                }
-            },
-            interaction: { mode: 'index', intersect: false }
+            });
         }
-    });
-}
         
         function initWorker() {
             const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -1495,7 +1297,7 @@ for (let y = 0; y < totalYears; y++) {
             const container = document.getElementById('csv-rows-container');
             container.innerHTML = '';
             
-           ingestedRows.forEach((row, idx) => {
+            ingestedRows.forEach((row, idx) => {
                 const item = document.createElement('div');
                 item.className = "flex justify-between items-center bg-slate-950/40 border border-slate-800 p-3 rounded-xl gap-4";
                 
@@ -1703,16 +1505,8 @@ for (let y = 0; y < totalYears; y++) {
             ];
             let accentColor = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : activeTab === 'core' ? '#9333ea' : '#eab308';
             
-            const borderColors = [
-                '#ef4444', 
-                '#f59e0b', 
-                accentColor 
-            ];
-            const borderDash = [
-                [4, 4], 
-                [2, 2], 
-                []      
-            ];
+            const borderColors = [ '#ef4444', '#f59e0b', accentColor ];
+            const borderDash = [ [4, 4], [2, 2], [] ];
             const chartDatasets = selectedPaths.map((path, idx) => ({
                 label: pathLabels[idx],
                 data: path,
@@ -1723,6 +1517,7 @@ for (let y = 0; y < totalYears; y++) {
                 fill: false,
                 tension: 0.1
             }));
+            
             if (chartInstance) chartInstance.destroy();
             chartInstance = new Chart(ctx, {
                 type: 'line',
@@ -1771,22 +1566,16 @@ for (let y = 0; y < totalYears; y++) {
 
         function renderDrawdownChart(res) {
             const ctx = document.getElementById('drawdownChart').getContext('2d');
-            
-            // Calculate where the retirement data actually begins
             let offsetIndex = Math.max(0, retirementAge - startAge);
-            
-            // Build timeline starting from retirement age
             let timeline = [];
             for (let a = retirementAge; a <= endAge; a++) timeline.push(a);
 
             if (drawdownChartInstance) drawdownChartInstance.destroy();
-            
             drawdownChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: timeline,
                     datasets: [
-                        // Slice the arrays to remove the pre-retirement years
                         { label: 'HSA', data: res.drawdownHsa.slice(offsetIndex), backgroundColor: '#a855f7', stack: 'Stack 0' },
                         { label: 'Cash Reserves', data: res.drawdownCash.slice(offsetIndex), backgroundColor: '#f59e0b', stack: 'Stack 0' },
                         { label: 'Bridge (Taxable)', data: res.drawdownBridge.slice(offsetIndex), backgroundColor: '#3b82f6', stack: 'Stack 0' },
@@ -1865,7 +1654,7 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
 --------------------------------------------------
 * Combined Total Net Worth:     ${lastSimulatedMetrics.projectedNWRetirement || '$0'}
   - Projected Taxable Bridge:   ${lastSimulatedMetrics.projectedBridgeRetirement || '$0'}
-  - Projected Core Portfolio:  ${lastSimulatedMetrics.projectedCoreRetirement || '$0'}
+  - Projected Core Portfolio:   ${lastSimulatedMetrics.projectedCoreRetirement || '$0'}
 ==================================================`;
             try { navigator.clipboard.writeText(textSummary); showNotification("Profile summary data copied to clipboard!"); } catch(e){}
             const w = window.open('', '_blank');
@@ -1946,132 +1735,116 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
         }
         
         function setRetirementAge(age) { 
-    if (age < startAge) return;
-    retirementAge = age; 
+            if (age < startAge) return;
+            retirementAge = age; 
 
-    // 1. Dynamic slider validation
-    const sliderInput = document.getElementById('input-retirement-age');
-    const sliderLabel = document.getElementById('label-retirement-age');
+            const sliderInput = document.getElementById('input-retirement-age');
+            const sliderLabel = document.getElementById('label-retirement-age');
+            if (sliderInput && sliderLabel) {
+                sliderInput.value = age;
+                sliderLabel.textContent = age;
+                if (startAge > 45) {
+                    sliderInput.min = Math.min(startAge, 67);
+                } else {
+                    sliderInput.min = 45;
+                }
+            }
 
-    if (sliderInput && sliderLabel) {
-        // Force the slider value to match the valid age
-        sliderInput.value = age;
-        sliderLabel.textContent = age;
+            const toggle5515El = document.getElementById('toggle-5515');
+            const label5515Text = document.getElementById('label-5515-text');
+            if (age >= 55) {
+                toggle5515El.disabled = false;
+                if (label5515Text) label5515Text.classList.remove('opacity-40');
+                if (!rule5515) {
+                    toggle5515El.checked = true;
+                    rule5515 = true;
+                }
+            } else {
+                toggle5515El.disabled = true;
+                toggle5515El.checked = false;
+                rule5515 = false;
+                if (label5515Text) label5515Text.classList.add('opacity-40');
+            }
+            
+            const deriskLabel = document.getElementById('label-bridge-derisk');
+            if (deriskLabel) {
+                deriskLabel.textContent = `De-risk at Age ${age}`;
+            }
 
-        // Dynamically shift the slider's minimum boundary based on your current age
-        if (startAge > 45) {
-            sliderInput.min = Math.min(startAge, 67);
-        } else {
-            sliderInput.min = 45;
+            runMonteCarloSimulation();
         }
-    }
-
-    // 2. 55/15 Exemption Logic
-    const toggle5515El = document.getElementById('toggle-5515');
-    const label5515Text = document.getElementById('label-5515-text');
-      if (age >= 55) {
-      toggle5515El.disabled = false;
-      if (label5515Text) label5515Text.classList.remove('opacity-40');
-      if (!rule5515) {
-        toggle5515El.checked = true;
-        rule5515 = true;
-        }
-       } else {
-    toggle5515El.disabled = true;
-    toggle5515El.checked = false;
-    rule5515 = false;
-    if (label5515Text) label5515Text.classList.add('opacity-40');
-  }
-    
-    // 3. De-risk Label Update
-    const deriskLabel = document.getElementById('label-bridge-derisk');
-    if (deriskLabel) {
-        deriskLabel.textContent = `De-risk at Age ${age}`;
-    }
-
-    // 4. Trigger the simulation with the new age
-    runMonteCarloSimulation();
-}
 
         function toggle5515(v) { rule5515 = v; runMonteCarloSimulation(); }
         function toggleDynamicSpend(v) { dynamicSpending = v; runMonteCarloSimulation(); }
         function updateSalary(v) { salary = parseInt(v); document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`; updateLabelElements(); }
         function updateSavingsTaxable(v) { savingsTaxable = parseInt(v); document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
-        // --- WORKPLACE PLANS: AUTO-THROTTLING LOGIC ---
-function updateSavings401k(v) {
-    savings401k = parseInt(v);
-    enforce415cLimits('401k');
-    runMonteCarloSimulation();
-}
-
-function updateEmployerMatch(v) {
-    employerMatch = parseInt(v);
-    enforce415cLimits('match');
-    runMonteCarloSimulation();
-}
-
-function updateMegaBackdoor(v) {
-    megaBackdoor = parseInt(v);
-    enforce415cLimits('mega');
-    runMonteCarloSimulation();
-}
-
-function enforce415cLimits(activeSlider) {
-    let total = savings401k + employerMatch + megaBackdoor;
-    
-    // If the user breaches the $72k IRS limit, dynamically throttle
-    if (total > 72000) {
-        let excess = total - 72000;
         
-        if (activeSlider === '401k') {
-            // Try to steal from Mega first (if unlocked), then Match (if unlocked)
-            if (!lockMega && excess > 0) { let steal = Math.min(megaBackdoor, excess); megaBackdoor -= steal; excess -= steal; }
-            if (!lockMatch && excess > 0) { let steal = Math.min(employerMatch, excess); employerMatch -= steal; excess -= steal; }
-            if (excess > 0) { savings401k -= excess; } // Bounce back if others are locked
+        function updateSavings401k(v) {
+            savings401k = parseInt(v);
+            enforce415cLimits('401k');
+            runMonteCarloSimulation();
+        }
+
+        function updateEmployerMatch(v) {
+            employerMatch = parseInt(v);
+            enforce415cLimits('match');
+            runMonteCarloSimulation();
+        }
+
+        function updateMegaBackdoor(v) {
+            megaBackdoor = parseInt(v);
+            enforce415cLimits('mega');
+            runMonteCarloSimulation();
+        }
+
+        function enforce415cLimits(activeSlider) {
+            let total = savings401k + employerMatch + megaBackdoor;
+            if (total > 72000) {
+                let excess = total - 72000;
+                if (activeSlider === '401k') {
+                    if (!lockMega && excess > 0) { let steal = Math.min(megaBackdoor, excess); megaBackdoor -= steal; excess -= steal; }
+                    if (!lockMatch && excess > 0) { let steal = Math.min(employerMatch, excess); employerMatch -= steal; excess -= steal; }
+                    if (excess > 0) { savings401k -= excess; }
+                    
+                } else if (activeSlider === 'match') {
+                    if (!lockMega && excess > 0) { let steal = Math.min(megaBackdoor, excess); megaBackdoor -= steal; excess -= steal; }
+                    if (!lock401k && excess > 0) { let steal = Math.min(savings401k, excess); savings401k -= steal; excess -= steal; }
+                    if (excess > 0) { employerMatch -= excess; }
+                    
+                } else if (activeSlider === 'mega') {
+                    if (!lockMatch && excess > 0) { let steal = Math.min(employerMatch, excess); employerMatch -= steal; excess -= steal; }
+                    if (!lock401k && excess > 0) { let steal = Math.min(savings401k, excess); savings401k -= steal; excess -= steal; }
+                    if (excess > 0) { megaBackdoor -= excess; }
+                }
+                
+                document.getElementById('input-savings-401k').value = savings401k;
+                document.getElementById('input-employer-match').value = employerMatch;
+                document.getElementById('input-mega-backdoor').value = megaBackdoor;
+                total = 72000;
+            }
             
-        } else if (activeSlider === 'match') {
-            // Try to steal from Mega first (if unlocked), then Base 401k (if unlocked)
-            if (!lockMega && excess > 0) { let steal = Math.min(megaBackdoor, excess); megaBackdoor -= steal; excess -= steal; }
-            if (!lock401k && excess > 0) { let steal = Math.min(savings401k, excess); savings401k -= steal; excess -= steal; }
-            if (excess > 0) { employerMatch -= excess; }
+            document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
+            document.getElementById('label-employer-match').textContent = `$${employerMatch.toLocaleString()}/yr`;
+            document.getElementById('label-mega-backdoor').textContent = `$${megaBackdoor.toLocaleString()}/yr`;
             
-        } else if (activeSlider === 'mega') {
-            // Try to steal from Match first (if unlocked), then Base 401k (if unlocked)
-            if (!lockMatch && excess > 0) { let steal = Math.min(employerMatch, excess); employerMatch -= steal; excess -= steal; }
-            if (!lock401k && excess > 0) { let steal = Math.min(savings401k, excess); savings401k -= steal; excess -= steal; }
-            if (excess > 0) { megaBackdoor -= excess; }
+            document.getElementById('label-415c-total').textContent = `Total: $${total.toLocaleString()} / $72k`;
+            document.getElementById('label-415c-percent').textContent = `${Math.round((total / 72000) * 100)}%`;
+            
+            document.getElementById('bar-401k-base').style.width = `${(savings401k / 72000) * 100}%`;
+            document.getElementById('bar-401k-match').style.width = `${(employerMatch / 72000) * 100}%`;
+            document.getElementById('bar-401k-mega').style.width = `${(megaBackdoor / 72000) * 100}%`;
         }
         
-        // Snap the DOM sliders back to their legally allowed/locked maximums
-        document.getElementById('input-savings-401k').value = savings401k;
-        document.getElementById('input-employer-match').value = employerMatch;
-        document.getElementById('input-mega-backdoor').value = megaBackdoor;
-        total = 72000;
-    }
-    
-    // Update all text labels
-    document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
-    document.getElementById('label-employer-match').textContent = `$${employerMatch.toLocaleString()}/yr`;
-    document.getElementById('label-mega-backdoor').textContent = `$${megaBackdoor.toLocaleString()}/yr`;
-    
-    // Paint the passive progress bar
-    document.getElementById('label-415c-total').textContent = `Total: $${total.toLocaleString()} / $72k`;
-    document.getElementById('label-415c-percent').textContent = `${Math.round((total / 72000) * 100)}%`;
-    
-    document.getElementById('bar-401k-base').style.width = `${(savings401k / 72000) * 100}%`;
-    document.getElementById('bar-401k-match').style.width = `${(employerMatch / 72000) * 100}%`;
-    document.getElementById('bar-401k-mega').style.width = `${(megaBackdoor / 72000) * 100}%`;
-}
         function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsHSA(v) { savingsHSA = parseInt(v); document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsCash(v) { savingsCash = parseInt(v); document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function snapHSALimit(v) { document.getElementById('input-savings-hsa').value = v; updateSavingsHSA(v); }
-        function snapRothLimit(v) { const rothInput = document.getElementById('input-savings-roth');rothInput.max = v === 8600 ? 8600 : 7500; rothInput.value = v; updateSavingsRoth(v);}
-        function snapBridgeReturn(v) { document.getElementById('input-return-bridge').value = v; updateReturnBridge(v);}
+        function snapRothLimit(v) { const rothInput = document.getElementById('input-savings-roth'); rothInput.max = v === 8600 ? 8600 : 7500; rothInput.value = v; updateSavingsRoth(v); }
+        function snapBridgeReturn(v) { document.getElementById('input-return-bridge').value = v; updateReturnBridge(v); }
         function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; runMonteCarloSimulation(); }
         function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; runMonteCarloSimulation(); }
-        function updatePensionPayout(v) {pensionPayout = parseInt(v);document.getElementById('label-pension-payout').textContent = `$${pensionPayout.toLocaleString()}/yr`;runMonteCarloSimulation()}
-        function updatePensionAge(v) {pensionStartAge = parseInt(v);document.getElementById('label-pension-age').textContent = v;runMonteCarloSimulation();}
+        function updatePensionPayout(v) { pensionPayout = parseInt(v); document.getElementById('label-pension-payout').textContent = `$${pensionPayout.toLocaleString()}/yr`; runMonteCarloSimulation(); }
+        function updatePensionAge(v) { pensionStartAge = parseInt(v); document.getElementById('label-pension-age').textContent = v; runMonteCarloSimulation(); }
         function updateLTC(v) { ltcCost = parseInt(v); document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`; runMonteCarloSimulation(); }
         function updateStateTax(v) { stateTaxRate = parseFloat(v)/100; document.getElementById('label-state-tax').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation(); }
         function updateMedInflation(v) { medInflationRate = parseFloat(v)/100; document.getElementById('label-med-inflation').textContent = `${parseFloat(v).toFixed(1)}%`; runMonteCarloSimulation(); }
@@ -2091,42 +1864,42 @@ function enforce415cLimits(activeSlider) {
         function updateDebtPayment(v) { debtPayment = parseInt(v); document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         
         function updateLabelElements() { 
-    let totalSavings = savingsTaxable + savings401k + megaBackdoor + savingsRoth + savingsHSA + savingsCash;
-    document.getElementById('label-total-savings').textContent = `Total: $${totalSavings.toLocaleString()}/yr`; 
-    
-    let deficitWarning = document.getElementById('warning-deficit');
-    if (deficitWarning) {
-        if ((totalSavings + spending + debtPayment) > salary) {
-            deficitWarning.classList.remove('hidden');
-            deficitWarning.classList.add('flex');
-        } else {
-            deficitWarning.classList.add('hidden');
-            deficitWarning.classList.remove('flex');
+            let totalSavings = savingsTaxable + savings401k + megaBackdoor + savingsRoth + savingsHSA + savingsCash;
+            document.getElementById('label-total-savings').textContent = `Total: $${totalSavings.toLocaleString()}/yr`; 
+            
+            let deficitWarning = document.getElementById('warning-deficit');
+            if (deficitWarning) {
+                if ((totalSavings + spending + debtPayment) > salary) {
+                    deficitWarning.classList.remove('hidden');
+                    deficitWarning.classList.add('flex');
+                } else {
+                    deficitWarning.classList.add('hidden');
+                    deficitWarning.classList.remove('flex');
+                }
+            }
         }
-    }
-}
 
         function toggleLock(target) {
-    if (target === '401k') {
-        lock401k = !lock401k;
-        document.getElementById('icon-lock-401k').textContent = lock401k ? 'lock' : 'lock_open';
-        document.getElementById('icon-lock-401k').className = lock401k ? 'material-icons text-[14px] text-cyan-400' : 'material-icons text-[14px]';
-        document.getElementById('input-savings-401k').disabled = lock401k;
-        document.getElementById('input-savings-401k').classList.toggle('opacity-40', lock401k);
-    } else if (target === 'match') {
-        lockMatch = !lockMatch;
-        document.getElementById('icon-lock-match').textContent = lockMatch ? 'lock' : 'lock_open';
-        document.getElementById('icon-lock-match').className = lockMatch ? 'material-icons text-[14px] text-emerald-400' : 'material-icons text-[14px]';
-        document.getElementById('input-employer-match').disabled = lockMatch;
-        document.getElementById('input-employer-match').classList.toggle('opacity-40', lockMatch);
-    } else if (target === 'mega') {
-        lockMega = !lockMega;
-        document.getElementById('icon-lock-mega').textContent = lockMega ? 'lock' : 'lock_open';
-        document.getElementById('icon-lock-mega').className = lockMega ? 'material-icons text-[14px] text-purple-400' : 'material-icons text-[14px]';
-        document.getElementById('input-mega-backdoor').disabled = lockMega;
-        document.getElementById('input-mega-backdoor').classList.toggle('opacity-40', lockMega);
-    }
-}
+            if (target === '401k') {
+                lock401k = !lock401k;
+                document.getElementById('icon-lock-401k').textContent = lock401k ? 'lock' : 'lock_open';
+                document.getElementById('icon-lock-401k').className = lock401k ? 'material-icons text-[14px] text-cyan-400' : 'material-icons text-[14px]';
+                document.getElementById('input-savings-401k').disabled = lock401k;
+                document.getElementById('input-savings-401k').classList.toggle('opacity-40', lock401k);
+            } else if (target === 'match') {
+                lockMatch = !lockMatch;
+                document.getElementById('icon-lock-match').textContent = lockMatch ? 'lock' : 'lock_open';
+                document.getElementById('icon-lock-match').className = lockMatch ? 'material-icons text-[14px] text-emerald-400' : 'material-icons text-[14px]';
+                document.getElementById('input-employer-match').disabled = lockMatch;
+                document.getElementById('input-employer-match').classList.toggle('opacity-40', lockMatch);
+            } else if (target === 'mega') {
+                lockMega = !lockMega;
+                document.getElementById('icon-lock-mega').textContent = lockMega ? 'lock' : 'lock_open';
+                document.getElementById('icon-lock-mega').className = lockMega ? 'material-icons text-[14px] text-purple-400' : 'material-icons text-[14px]';
+                document.getElementById('input-mega-backdoor').disabled = lockMega;
+                document.getElementById('input-mega-backdoor').classList.toggle('opacity-40', lockMega);
+            }
+        }
         
         function syncNetWorthSummaryPanel() { 
             let currentNW = cashReserve + bridgeCapital + coreCapital + hsaStart - debtStart;
@@ -2165,5 +1938,6 @@ function enforce415cLimits(activeSlider) {
             runMonteCarloSimulation();
         };
     </script>
+    
 </body>
 </html>
