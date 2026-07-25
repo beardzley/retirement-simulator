@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.7.0.2</title>
+    <title>Beardzley Retirement Simulator v.7.1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.7.0.2</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.7.1.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -794,11 +794,11 @@
 
                                 let corePenalty = 0;
                                 if (corePull > 0) {
-                                    let is5515Eligible = (d.rule5515 && d.retirementAge === 55 && age >= 55);
-                                    if (age < 60 && !is5515Eligible) {
-                                        corePenalty = corePull * 0.10;
-                                    }
-                                }
+                                let is5515Eligible = (d.rule5515 && d.retirementAge >= 55 && age >= 55);
+                               if (age < 60 && !is5515Eligible) {
+                                corePenalty = corePull * 0.10;
+                                   }
+                                 }
 
                                 let actualTax = calculateAnnualTax(corePull + hsaPull, brokeragePull, dynamicBasisRatio, annualInterest, age) + corePenalty;
                                 if (Math.abs(actualTax - estimatedTax) < 1) {
@@ -1584,16 +1584,19 @@ MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
     // 2. 55/15 Exemption Logic
     const toggle5515El = document.getElementById('toggle-5515');
     const label5515Text = document.getElementById('label-5515-text');
-    
-    if (age === 55) {
-        toggle5515El.disabled = false;
-        if (label5515Text) label5515Text.classList.remove('opacity-40');
-    } else {
-        toggle5515El.disabled = true;
-        toggle5515El.checked = false;
-        rule5515 = false;
-        if (label5515Text) label5515Text.classList.add('opacity-40');
-    }
+      if (age >= 55) {
+      toggle5515El.disabled = false;
+      if (label5515Text) label5515Text.classList.remove('opacity-40');
+      if (!rule5515) {
+        toggle5515El.checked = true;
+        rule5515 = true;
+        }
+       } else {
+    toggle5515El.disabled = true;
+    toggle5515El.checked = false;
+    rule5515 = false;
+    if (label5515Text) label5515Text.classList.add('opacity-40');
+  }
     
     // 3. De-risk Label Update
     const deriskLabel = document.getElementById('label-bridge-derisk');
