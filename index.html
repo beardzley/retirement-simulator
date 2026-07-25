@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.1.0</title>
+    <title>Beardzley Retirement Simulator v.9.2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.1.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.2.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -44,6 +44,11 @@
             <button onclick="loadUserBaseline()" id="btn-reset-baseline" class="flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg transition-all opacity-40 cursor-not-allowed" disabled>
                 <span class="material-icons text-sm">settings_backup_restore</span> Snap to My Baseline
             </button>
+            
+            <button onclick="importSummaryData()" class="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-lg transition-all border border-slate-700 active:scale-95">
+                <span class="material-icons text-[14px]">file_upload</span> Load Save State
+            </button>
+
         </div>
     </header>
 
@@ -1216,6 +1221,18 @@
                 }
             });
         }
+
+    function importSummaryData() {
+            const rawCode = prompt("Paste your Retirement Simulator Save State Code here:");
+            if (!rawCode || rawCode.trim() === "") return;
+            try {
+                const parsedState = JSON.parse(atob(rawCode.trim()));
+                applyState(parsedState);
+                showNotification("Save state loaded successfully!");
+            } catch (err) {
+                alert("Invalid save state code. Please make sure you copied the entire character string accurately.");
+            }
+        }
         
         function initWorker() {
             const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -1655,9 +1672,27 @@
         }
 
         function exportSummaryData() {
+            const saveStateObj = {
+                startAge, retirementAge, salary, savingsTaxable, savings401k, 
+                savingsRoth, savingsHSA, savingsCash, spending, bridgeCapital, 
+                coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, 
+                meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, 
+                healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, 
+                dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge
+            };
+            
+            // 2. Turn it into a compact, encrypted-looking string (Base64 code)
+            const serializedSaveCode = btoa(JSON.stringify(saveStateObj));
+
             const totalAnnualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA + savingsCash;
             const textSummary = `==================================================
-RETIREMENT SUMMARY
+RETIREMENT SIMULATOR GAME SAVE STATE CODE
+==================================================
+Copy the code below to load this exact setup later:
+${serializedSaveCode}
+
+==================================================
+RETIREMENT SUMMARY REPORT
 ==================================================
 * Current Age:                  ${startAge} Years Old
 * Target Milestone Age:         ${retirementAge} Years Old
@@ -1687,17 +1722,16 @@ HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
 * Lifetime Survival Rate (90):  ${lastSimulatedMetrics.successRate || '100%'}
 * Bridge Survival Rate (60):    ${lastSimulatedMetrics.bridgeSurvivalRate || '100%'}
 * Median Estate Pool (Age 90):  ${lastSimulatedMetrics.medianEstateAge90 || '$0'}
-
-MEDIAN NW PROJECTED VALUE AT RETIREMENT AGE (${retirementAge}):
---------------------------------------------------
-* Combined Total Net Worth:     ${lastSimulatedMetrics.projectedNWRetirement || '$0'}
-  - Projected Taxable Bridge:   ${lastSimulatedMetrics.projectedBridgeRetirement || '$0'}
-  - Projected Core Portfolio:   ${lastSimulatedMetrics.projectedCoreRetirement || '$0'}
 ==================================================`;
-            try { navigator.clipboard.writeText(textSummary); showNotification("Profile summary data copied to clipboard!"); } catch(e){}
+
+            try { 
+                navigator.clipboard.writeText(serializedSaveCode); 
+                showNotification("Save state string copied to clipboard!"); 
+            } catch(e){}
+            
             const w = window.open('', '_blank');
             if (w) {
-                w.document.write(`<html><head><title>10k Simulation Export Summary</title><style>body{font-family:'Courier New',monospace;padding:40px;background:#f8fafc;color:#0f172a;}.card{max-width:700px;margin:0 auto;background:white;padding:30px;border:1px solid #cbd5e1;border-radius:6px;white-space:pre-wrap;}button{font-family:sans-serif;padding:8px 14px;font-weight:600;border-radius:4px;cursor:pointer;border:1px solid #0284c7;background:#0284c7;color:white;margin-bottom:20px;}@print{.no-p{display:none;}}</style></head><body><div class="no-p"><button onclick="window.print()">Print / Export PDF</button></div><div class="card">${textSummary}</div></body></html>`);
+                w.document.write(`<html><head><title>Simulation Export</title><style>body{font-family:'Courier New',monospace;padding:40px;background:#f8fafc;color:#0f172a;}.card{max-width:700px;margin:0 auto;background:white;padding:30px;border:1px solid #cbd5e1;border-radius:6px;white-space:pre-wrap;}button{font-family:sans-serif;padding:8px 14px;font-weight:600;border-radius:4px;cursor:pointer;border:1px solid #0284c7;background:#0284c7;color:white;margin-bottom:20px;}textarea{width:100%;height:60px;background:#f1f5f9;border:1px solid #cbd5e1;font-family:monospace;padding:5px;font-size:11px;box-sizing:border-box;resize:none;}</style></head><body><div class="no-p"><button onclick="window.print()">Print / Export PDF</button></div><div class="card"><h3>Your Quick Save Code:</h3><textarea readonly onclick="this.select()">${serializedSaveCode}</textarea>\n\n${textSummary}</div></body></html>`);
                 w.document.close();
             }
         }
