@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.0.2</title>
+    <title>Beardzley Retirement Simulator v.9.0.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.0.2</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.0.3</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -951,7 +951,7 @@
                     let totalRemainingAssets = currentBridge + currentCore + currentHSA + currentCash;
                     if (!pathInsolvent && totalRemainingAssets > currentDebt) lifetimeSuccessCount++;
                     if (bridgeSurvivedTo60 && !pathInsolvent) bridgeSuccessCount++;
-                    if (d.rule5515 && d.retirementAge === 55 && !bridgeSurvivedTo60 && !pathInsolvent) {
+                    if (d.rule5515 && d.retirementAge >= && !bridgeSurvivedTo60 && !pathInsolvent) {
                        savedBy5515Count++;
                     }
                     
@@ -1428,7 +1428,7 @@
 
             const rule55Container = document.getElementById('right-rail-55-placeholder');
             if (rule55Container) {
-                if (retirementAge => 55 && document.getElementById('toggle-5515').checked) {
+                if (retirementAge >= 55 && document.getElementById('toggle-5515').checked) {
                     rule55Container.innerHTML = `
                         <div class="w-12 h-12 rounded-full border-[3px] border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-sm shadow-inner bg-emerald-500/10 shrink-0">
                             ${res.savedBy5515Rate}%
@@ -1438,7 +1438,7 @@
                             <p class="text-[9px] text-slate-500 leading-snug mt-0.5">Iterations that depleted the bridge early but survived via penalty bypass.</p>
                         </div>
                     `;
-                } else if (retirementAge => 55) {
+                } else if (retirementAge >= 55) {
                     rule55Container.innerHTML = `
                         <div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shadow-inner shrink-0">
                             <span class="material-icons text-lg">lock_open</span>
