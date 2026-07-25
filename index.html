@@ -730,13 +730,10 @@
 
                     return ordinaryTax + ltcgTax + stateTax;
                 }
-                
+
                 const totalYears = d.endAge - d.startAge;
-                const preCalcSpending = new Float32Array(totalYears);
-                const preCalcHealthPremium = new Float32Array(totalYears);
-                const preCalcLtcCost = new Float32Array(totalYears);
-                const preCalcPension = new Float32Array(totalYears);
                 let runningSpending = d.spending;
+                
                 let runningHealthPremium = d.healthPremium;
                 let runningLtcCost = d.ltcCost;
                 
