@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.7.0.0</title>
+    <title>Beardzley Retirement Simulator v.7.0.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.7.0.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.7.0.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -741,19 +741,21 @@
                             if (age >= d.pensionStartAge) {
                             let inflatedPension = d.pensionPayout * Math.pow(1 + d.inflationRate, age - d.startAge);
                             netNeed = Math.max(0, netNeed - inflatedPension);
-                            let annualInterest = currentCash * d.cashYield;
-                            currentCash += annualInterest;
+                            }   
 
-                            let rmdAmount = 0;
-                            if (age >= 73) {
-                                const rmdDivisors = {
-                                    73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0,
-                                    79: 21.1, 80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8,
-                                    85: 16.0, 86: 15.2, 87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2
-                                };
-                                let divisor = rmdDivisors[age] || 12.2;
-                                rmdAmount = currentCore / divisor;
-                            }
+                           let annualInterest = currentCash * d.cashYield;
+                           currentCash += annualInterest;
+
+                           let rmdAmount = 0;
+                           if (age >= 73) {
+                           const rmdDivisors = {
+                           73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0,
+                           79: 21.1, 80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8,
+                           85: 16.0, 86: 15.2, 87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2
+                           };
+                           let divisor = rmdDivisors[age] || 12.2;
+                           rmdAmount = currentCore / divisor;
+                           }
 
                             let estimatedTax = 0;
                             let grossNeeded = netNeed + estimatedTax;
@@ -1015,7 +1017,7 @@
             simTimeout = setTimeout(() => {
                 const rothCatchUp = document.getElementById('toggle-roth-catchup')?.checked || false;
                 const bridgeDerisk = document.getElementById('toggle-bridge-derisk')?.checked || false;
-                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, bridgeDerisk, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment };
+                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, bridgeDerisk, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge };
                 
                 if (!simWorker) initWorker();
                 simWorker.postMessage(simulationConfig);
