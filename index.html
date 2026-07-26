@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.4.1</title>
+    <title>Beardzley Retirement Simulator v.9.5.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.4.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -399,6 +399,24 @@
                 </div>
             </div>
         </div>
+
+        <div>
+    <div class="flex justify-between items-center mb-1">
+        <div class="flex items-center gap-1">
+            <label class="text-sm font-medium text-slate-300">Annual RSU Vest (Gross)</label>
+        </div>
+        <span id="label-rsu" class="text-sm font-mono font-bold text-emerald-400">$0/yr</span>
+    </div>
+    <input type="range" id="input-rsu" min="0" max="500000" step="5000" value="0" oninput="updateRsu(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+</div>
+
+<div>
+    <div class="flex justify-between items-center mb-1">
+        <label class="text-sm font-medium text-slate-300">Annual ESPP Deduction</label>
+        <span id="label-espp" class="text-sm font-mono font-bold text-emerald-400">$0/yr</span>
+    </div>
+    <input type="range" id="input-espp" min="0" max="30000" step="500" value="0" oninput="updateEspp(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+</div>
 
         <span id="label-salary" class="text-sm font-mono font-bold text-emerald-400">$150,000</span>
     </div>
@@ -1344,6 +1362,8 @@
 
         let startAge = 37, retirementAge = 45, endAge = 90;
         let salary = 150000;
+        let rsuVest = 0;
+        let esppContribution = 0;
         let savingsTaxable = 0, savings401k = 0, savingsRoth = 0, savingsHSA = 0, savingsCash = 0;
         let spending = 90000, bridgeCapital = 0, coreCapital = 0, hsaStart = 0, cashReserve = 0;
         let meanReturnBridge = 0.08, stdDevBridge = 0.18, meanReturnCore = 0.07, stdDevCore = 0.12;
@@ -1421,6 +1441,20 @@
                 renderCompositionChart(res);
             };
         }
+        
+        function updateRsu(v) { 
+    rsuVest = parseInt(v); 
+    document.getElementById('label-rsu').textContent = `$${rsuVest.toLocaleString()}/yr`; 
+    updateLabelElements(); 
+    runMonteCarloSimulation(); 
+}
+
+function updateEspp(v) { 
+    esppContribution = parseInt(v); 
+    document.getElementById('label-espp').textContent = `$${esppContribution.toLocaleString()}/yr`; 
+    updateLabelElements(); 
+    runMonteCarloSimulation(); 
+}
 
         function runMonteCarloSimulation() {
             document.getElementById('processing-indicator').classList.remove('hidden');
@@ -1429,7 +1463,7 @@
             simTimeout = setTimeout(() => {
                 const rothCatchUp = document.getElementById('toggle-roth-catchup')?.checked || false;
                 const bridgeDerisk = document.getElementById('toggle-bridge-derisk')?.checked || false;
-                const config = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, bridgeDerisk, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge, employerMatch, megaBackdoor };
+                const config = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, bridgeDerisk, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge, employerMatch, megaBackdoor, rsuVest, esppContribution };
                 if (!simWorker) initWorker();
                 simWorker.postMessage(config);
             }, 150);
@@ -1818,16 +1852,19 @@ SAVINGS CONTRIBUTION VELOCITY
         
         function updateLabelElements() {
     let tot = savingsTaxable + savings401k + megaBackdoor + savingsRoth + savingsHSA + savingsCash;
-    document.getElementById('label-total-savings').textContent = `Total: $${tot.toLocaleString()}/yr`;
+    document.getElementById('label-total-savings').textContent = `Total: $${(tot + esppContribution).toLocaleString()}/yr`;
     
     let w = document.getElementById('warning-deficit');
     if(w) { 
-        // Calculate true take-home pool by stripping out Federal/FICA taxes
-        let estimatedTaxes = calculateActiveTaxes(salary, savings401k, savingsHSA);
-        let trueNetSalary = salary - estimatedTaxes;
+        // Calculate taxes on your base + bonus cash ONLY.
+        // We assume RSUs cover their own taxes via sell-to-cover at vesting.
+        let estimatedCashTaxes = calculateActiveTaxes(salary, savings401k, savingsHSA);
         
-        // Deficit triggers if Total Savings + Spending + Debt > (Gross Salary - Taxes)
-        if((tot + spending + debtPayment) > trueNetSalary) { 
+        // True Liquid Cash = Cash Salary - Cash Taxes - ESPP Deduction
+        let trueNetCash = salary - estimatedCashTaxes - esppContribution;
+        
+        // Deficit triggers if out-of-pocket savings + spend + debt > true liquid cash
+        if((tot + spending + debtPayment) > trueNetCash) { 
             w.classList.remove('hidden'); 
             w.classList.add('flex'); 
         } else { 
