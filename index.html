@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.3.6</title>
+    <title>Beardzley Retirement Simulator v.9.3.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.6</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.8</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -1091,27 +1091,25 @@
                     terminalCombinedValues.push(totalRemainingAssets - currentDebt);
                 }
 
+                // 1. Identify the True Median Path for the mechanical composition charts
                 let runPerformance = terminalCombinedValues.map((val, idx) => ({ val, idx }));
                 runPerformance.sort((a, b) => a.val - b.val);
-
-                let p10Idx = runPerformance[Math.floor(iterations * 0.10)].idx;
-                let p25Idx = runPerformance[Math.floor(iterations * 0.25)].idx;
                 let medianIdx = runPerformance[Math.floor(iterations * 0.50)].idx;
 
                 let p10Combined = [], p25Combined = [], p50Combined = [];
-                let p50BridgePath = [], p50CorePath = [], p50CashPath = [];
-                
+                let p10Bridge = [], p25Bridge = [], p50Bridge = [];
+                let p10Core = [], p25Core = [], p50Core = [];
+                let p10Cash = [], p25Cash = [], p50Cash = [];
+
+                let compBridge = [], compCore = [], compCash = [];
                 let p50DrawdownBridge = [], p50DrawdownCore = [], p50DrawdownCash = [], p50DrawdownHsa = [];
                 let p50DrawdownSs = [], p50DrawdownPension = [];
 
                 for (let y = 0; y < yearsCount; y++) {
-                    p10Combined.push(yearlyCombined[y][p10Idx]);
-                    p25Combined.push(yearlyCombined[y][p25Idx]);
-                    p50Combined.push(yearlyCombined[y][medianIdx]);
-                    
-                    p50BridgePath.push(yearlyBridge[y][medianIdx]);
-                    p50CorePath.push(yearlyCore[y][medianIdx]);
-                    p50CashPath.push(yearlyCash[y][medianIdx]);
+                    // Extract True Median Path BEFORE sorting
+                    compBridge.push(yearlyBridge[y][medianIdx]);
+                    compCore.push(yearlyCore[y][medianIdx]);
+                    compCash.push(yearlyCash[y][medianIdx]);
 
                     p50DrawdownBridge.push(yearlyDrawdownBridge[y][medianIdx]);
                     p50DrawdownCore.push(yearlyDrawdownCore[y][medianIdx]);
@@ -1119,6 +1117,28 @@
                     p50DrawdownHsa.push(yearlyDrawdownHsa[y][medianIdx]);
                     p50DrawdownSs.push(yearlyDrawdownSs[y][medianIdx]);
                     p50DrawdownPension.push(yearlyDrawdownPension[y][medianIdx]);
+
+                    // Duplicate the arrays and sort cross-sectionally for the smooth probability funnel
+                    let yearComb = new Float32Array(yearlyCombined[y]); yearComb.sort();
+                    let yearBrid = new Float32Array(yearlyBridge[y]); yearBrid.sort();
+                    let yearCor = new Float32Array(yearlyCore[y]); yearCor.sort();
+                    let yearCas = new Float32Array(yearlyCash[y]); yearCas.sort();
+
+                    p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
+                    p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
+                    p50Combined.push(yearComb[Math.floor(iterations * 0.50)]);
+
+                    p10Bridge.push(yearBrid[Math.floor(iterations * 0.10)]);
+                    p25Bridge.push(yearBrid[Math.floor(iterations * 0.25)]);
+                    p50Bridge.push(yearBrid[Math.floor(iterations * 0.50)]);
+
+                    p10Core.push(yearCor[Math.floor(iterations * 0.10)]);
+                    p25Core.push(yearCor[Math.floor(iterations * 0.25)]);
+                    p50Core.push(yearCor[Math.floor(iterations * 0.50)]);
+
+                    p10Cash.push(yearCas[Math.floor(iterations * 0.10)]);
+                    p25Cash.push(yearCas[Math.floor(iterations * 0.25)]);
+                    p50Cash.push(yearCas[Math.floor(iterations * 0.50)]);
                 }
 
                 terminalCombinedValues.sort((a, b) => a - b);
@@ -1161,11 +1181,16 @@
                     p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
                     
                     withdrawalRate: wRate,
+                    withdrawalRate: wRate,
                     iwrExceeded: isExceeded,
                     plotCombined: [p10Combined, p25Combined, p50Combined], 
-                    plotBridge: [p10Combined.map((_, i) => p50BridgePath[i]), p25Combined.map((_, i) => p50BridgePath[i]), p50BridgePath], 
-                    plotCore: [p10Combined.map((_, i) => p50CorePath[i]), p25Combined.map((_, i) => p50CorePath[i]), p50CorePath],
-                    plotCash: [p10Combined.map((_, i) => p50CashPath[i]), p25Combined.map((_, i) => p50CashPath[i]), p50CashPath],
+                    plotBridge: [p10Bridge, p25Bridge, p50Bridge], 
+                    plotCore: [p10Core, p25Core, p50Core],
+                    plotCash: [p10Cash, p25Cash, p50Cash],
+                    
+                    compBridge: compBridge,
+                    compCore: compCore,
+                    compCash: compCash,
                     
                     drawdownBridge: p50DrawdownBridge,
                     drawdownCore: p50DrawdownCore,
@@ -1325,9 +1350,9 @@
                 data: {
                     labels: timeline,
                     datasets: [
-                        { label: 'Cash Reserves', data: Array.from(res.plotCash[2] || []), backgroundColor: 'rgba(245, 158, 11, 0.3)', borderColor: '#f59e0b', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' },
-                        { label: 'Bridge (Taxable)', data: Array.from(res.plotBridge[2] || []), backgroundColor: 'rgba(59, 130, 246, 0.3)', borderColor: '#3b82f6', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' },
-                        { label: 'Core (401k/IRA)', data: Array.from(res.plotCore[2] || []), backgroundColor: 'rgba(16, 185, 129, 0.3)', borderColor: '#10b981', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' }
+                        { label: 'Cash Reserves', data: Array.from(res.compCash || []), backgroundColor: 'rgba(245, 158, 11, 0.3)', borderColor: '#f59e0b', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' },
+                        { label: 'Bridge (Taxable)', data: Array.from(res.compBridge || []), backgroundColor: 'rgba(59, 130, 246, 0.3)', borderColor: '#3b82f6', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' },
+                        { label: 'Core (401k/IRA)', data: Array.from(res.compCore || []), backgroundColor: 'rgba(16, 185, 129, 0.3)', borderColor: '#10b981', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' }
                     ]
                 },
                 options: {
