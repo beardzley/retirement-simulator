@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.3.4</title>
+    <title>Beardzley Retirement Simulator v.9.3.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.4</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.5</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -642,8 +642,7 @@
         </section>
     </main>
     
-    
-<script>
+    <script>
      const workerCode = `
             const iterations = 10000;
             const TWO_PI = 2.0 * Math.PI;
@@ -654,7 +653,6 @@
             const yearlyCore = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
             const yearlyCash = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
 
-            // NEW: True 2D Path Tracking for Drawdowns (Aligns charts perfectly)
             const yearlyDrawdownBridge = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
             const yearlyDrawdownCore = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
             const yearlyDrawdownCash = Array.from({length: MAX_YEARS}, () => new Float32Array(iterations));
@@ -688,7 +686,6 @@
                 retirementCashValues.length = 0;
                 lifetimeTaxValues.length = 0;
 
-                // Zero-fill 2D timeline arrays
                 for (let y = 0; y < yearsCount; y++) {
                     yearlyCombined[y].fill(0);
                     yearlyBridge[y].fill(0);
@@ -976,9 +973,6 @@
                             
                             runLifetimeTax += estimatedTax;
                             
-                            // ----------------------------------------------------
-                            // GAP LOOP (When taxable runs dry prior to Core unlock)
-                            // ----------------------------------------------------
                             if (pathInsolvent) {
                                 currentBridge = 0;
                                 currentCash = 0;
@@ -1038,9 +1032,6 @@
                                 break;
                             }
 
-                            // ----------------------------------------------------
-                            // NORMAL LOOP RECORDING
-                            // ----------------------------------------------------
                             let totalGenerated = corePull + brokeragePull + cashPull + hsaPull + annualInterest;
                             
                             yearlyDrawdownBridge[yearIdx][i] = brokeragePull;
@@ -1101,9 +1092,6 @@
                     terminalCombinedValues.push(totalRemainingAssets - currentDebt);
                 }
 
-                // ----------------------------------------------------
-                // THE TRUE MEDIAN PATH EXTRACTION
-                // ----------------------------------------------------
                 let runPerformance = terminalCombinedValues.map((val, idx) => ({ val, idx }));
                 runPerformance.sort((a, b) => a.val - b.val);
 
@@ -1126,7 +1114,6 @@
                     p50CorePath.push(yearlyCore[y][medianIdx]);
                     p50CashPath.push(yearlyCash[y][medianIdx]);
 
-                    // Look directly at the 2D array coordinates for this exact universe
                     p50DrawdownBridge.push(yearlyDrawdownBridge[y][medianIdx]);
                     p50DrawdownCore.push(yearlyDrawdownCore[y][medianIdx]);
                     p50DrawdownCash.push(yearlyDrawdownCash[y][medianIdx]);
@@ -1189,6 +1176,7 @@
                     drawdownPension: p50DrawdownPension
                 });
             };
+        \`; // <--- THIS BACKTICK PROPERLY CLOSES THE WORKER STRING
 
         const safeStorage = {
             getItem(key) { try { return window.localStorage ? window.localStorage.getItem(key) : null; } catch (e) { return null; } },
@@ -2226,6 +2214,6 @@ HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
             runMonteCarloSimulation();
         };
     </script>
-    `
+
 </body>
 </html>
