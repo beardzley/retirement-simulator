@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.2.2</title>
+    <title>Beardzley Retirement Simulator v.9.3.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.2.2</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.0</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -657,6 +657,8 @@
             const sumCorePull = new Float32Array(MAX_YEARS);
             const sumCashPull = new Float32Array(MAX_YEARS);
             const sumHsaPull = new Float32Array(MAX_YEARS);
+            const sumSsPull = new Float32Array(MAX_YEARS);
+            const sumPensionPull = new Float32Array(MAX_YEARS);
 
             const terminalCombinedValues = [];
             const retirementCombinedValues = [];
@@ -691,6 +693,8 @@
                 sumCorePull.fill(0, 0, yearsCount);
                 sumCashPull.fill(0, 0, yearsCount);
                 sumHsaPull.fill(0, 0, yearsCount);
+                sumSsPull.fill(0, 0, yearsCount);
+                sumPensionPull.fill(0, 0, yearsCount);
                 
                 // Zero-fill 2D timeline arrays
                 for (let y = 0; y < yearsCount; y++) {
@@ -877,14 +881,22 @@
                                 activeDebtPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
                             }
 
-                            let netNeed = preCalcSpending[currentYearIndex] + 
-                                          activeDebtPayment + 
-                                          preCalcHealthPremium[currentYearIndex] + 
-                                          preCalcLtcCost[currentYearIndex];
-                            if (age >= 67) netNeed = Math.max(0, netNeed - (d.socialSecurity * 12));
-                            if (preCalcPension[currentYearIndex] > 0) {
-                                netNeed = Math.max(0, netNeed - preCalcPension[currentYearIndex]);
-                            }   
+                            let grossNeedBase = preCalcSpending[currentYearIndex] + 
+                                                activeDebtPayment + 
+                                                preCalcHealthPremium[currentYearIndex] + 
+                                                preCalcLtcCost[currentYearIndex];
+
+                            // Track Fixed Income Sources First
+                            let availableSS = (age >= 67) ? (d.socialSecurity * 12) : 0;
+                            let availablePension = preCalcPension[currentYearIndex] > 0 ? preCalcPension[currentYearIndex] : 0;
+
+                            let ssPull = Math.min(grossNeedBase, availableSS);
+                            let remNeedBase = grossNeedBase - ssPull;
+                            
+                            let pensionPull = Math.min(remNeedBase, availablePension);
+                            remNeedBase -= pensionPull;
+
+                            let netNeed = remNeedBase; // Reassign netNeed for the rest of the existing pipeline
 
                             let annualInterest = currentCash * d.cashYield;
                             currentCash += annualInterest;
@@ -915,14 +927,23 @@
                                 corePull = rmdAmount;
                                 let coreSatisfied = Math.min(remGross, corePull);
                                 remGross -= coreSatisfied;
+                                
                                 brokeragePull = Math.min(remGross, currentBridge);
                                 remGross -= brokeragePull;
 
                                 cashPull = Math.min(remGross, currentCash);
                                 remGross -= cashPull;
-                                let extraCorePull = Math.min(remGross, currentCore - corePull);
-                                corePull += extraCorePull;
-                                remGross -= extraCorePull;
+                                
+                                // HARD LOCK: Block 401k/IRA prior to penalty-free age unless 55/15 rules apply
+                                let is5515Eligible = (d.rule5515 && d.retirementAge >= 55 && age >= 55);
+                                let canPullCore = (age >= 60 || is5515Eligible);
+                                
+                                let extraCorePull = 0;
+                                if (canPullCore) {
+                                    extraCorePull = Math.min(remGross, currentCore - corePull);
+                                    corePull += extraCorePull;
+                                    remGross -= extraCorePull;
+                                }
 
                                 hsaPull = 0;
                                 if (age >= 65) {
@@ -978,6 +999,8 @@
                             sumCorePull[yearIdx] += corePull;
                             sumCashPull[yearIdx] += cashPull;
                             sumHsaPull[yearIdx] += hsaPull;
+                            sumSsPull[yearIdx] += ssPull;
+                            sumPensionPull[yearIdx] += pensionPull;
 
                             let excessCash = totalGenerated - (netNeed + estimatedTax);
                             currentBridge -= brokeragePull;
@@ -1108,7 +1131,9 @@
                     drawdownBridge: Array.from(sumBrokeragePull).map(v => v / iterations),
                     drawdownCore: Array.from(sumCorePull).map(v => v / iterations),
                     drawdownCash: Array.from(sumCashPull).map(v => v / iterations),
-                    drawdownHsa: Array.from(sumHsaPull).map(v => v / iterations)
+                    drawdownHsa: Array.from(sumHsaPull).map(v => v / iterations),
+                    drawdownSs: Array.from(sumSsPull).map(v => v / iterations),
+                    drawdownPension: Array.from(sumPensionPull).map(v => v / iterations)
                 });
             };
         `;
@@ -1631,6 +1656,8 @@
                 data: {
                     labels: timeline,
                     datasets: [
+                        { label: 'Social Security', data: res.drawdownSs.slice(offsetIndex), backgroundColor: '#0ea5e9', stack: 'Stack 0' },
+                        { label: 'Pension', data: res.drawdownPension.slice(offsetIndex), backgroundColor: '#f43f5e', stack: 'Stack 0' },
                         { label: 'HSA', data: res.drawdownHsa.slice(offsetIndex), backgroundColor: '#a855f7', stack: 'Stack 0' },
                         { label: 'Cash Reserves', data: res.drawdownCash.slice(offsetIndex), backgroundColor: '#f59e0b', stack: 'Stack 0' },
                         { label: 'Bridge (Taxable)', data: res.drawdownBridge.slice(offsetIndex), backgroundColor: '#3b82f6', stack: 'Stack 0' },
