@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.5.1</title>
+    <title>Beardzley Retirement Simulator v.9.5.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.2</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -887,19 +887,27 @@
                         const currentYearIndex = age - d.startAge;
 
                         if (age < d.retirementAge) {
-                            const netBridgeReturn = annualReturnBridge - 0.003;
-                            
-                            currentBridge = (currentBridge + d.savingsTaxable) * (1 + netBridgeReturn);
-                            currentCore = (currentCore + d.savings401k + d.employerMatch + d.megaBackdoor + d.savingsRoth) * (1 + annualReturnCore);
-                            currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
-                            currentCash = (currentCash + d.savingsCash) * (1 + d.cashYield);
-                            
-                            if (currentDebt > 0) {
-                                let actualPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
-                                currentDebt = (currentDebt * (1 + d.debtRate)) - actualPayment;
-                                if (currentDebt < 0) currentDebt = 0;
-                            }
-                        } else {
+    const netBridgeReturn = annualReturnBridge - 0.003;
+    
+    // Safely parse the new equity variables
+    let safeRsu = d.rsuVest || 0;
+    let safeEspp = d.esppContribution || 0;
+    let netRsuShares = safeRsu * 0.70; // 30% haircut for supplemental taxes
+    
+    // Add ESPP and Net RSUs to the Bridge growth math
+    currentBridge = (currentBridge + d.savingsTaxable + safeEspp + netRsuShares) * (1 + netBridgeReturn);
+    
+    // These remain exactly as they were!
+    currentCore = (currentCore + d.savings401k + d.employerMatch + d.megaBackdoor + d.savingsRoth) * (1 + annualReturnCore);
+    currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
+    currentCash = (currentCash + d.savingsCash) * (1 + d.cashYield);
+    
+    if (currentDebt > 0) {
+        let actualPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
+        currentDebt = (currentDebt * (1 + d.debtRate)) - actualPayment;
+        if (currentDebt < 0) currentDebt = 0;
+    }
+} else {
                             let activeDebtPayment = 0;
                             if (currentDebt > 0) {
                                 activeDebtPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
@@ -1853,15 +1861,15 @@ SAVINGS CONTRIBUTION VELOCITY
     
     let w = document.getElementById('warning-deficit');
     if(w) { 
-        // Calculate taxes on your base + bonus cash ONLY.
-        // We assume RSUs cover their own taxes via sell-to-cover at vesting.
         let estimatedCashTaxes = calculateActiveTaxes(salary, savings401k, savingsHSA);
         
-        // True Liquid Cash = Cash Salary - Cash Taxes - ESPP Deduction
-        let trueNetCash = salary - estimatedCashTaxes - esppContribution;
+        // The post-tax shares/cash sitting in your account after sell-to-cover
+        let netRsuCash = rsuVest * 0.70; 
         
-        // Deficit triggers if out-of-pocket savings + spend + debt > true liquid cash
-        if((tot + spending + debtPayment) > trueNetCash) { 
+        // True Liquid Pool = Cash Salary + Net RSU Value - Cash Taxes - ESPP
+        let trueNetPool = salary + netRsuCash - estimatedCashTaxes - esppContribution;
+        
+        if((tot + spending + debtPayment) > trueNetPool) { 
             w.classList.remove('hidden'); 
             w.classList.add('flex'); 
         } else { 
