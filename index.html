@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.4.0</title>
+    <title>Beardzley Retirement Simulator v.9.4.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.4.0</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.4.1</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -382,12 +382,28 @@
                 <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">Financial Parameters</h2>
                 
                 <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="text-sm font-medium text-slate-300">Gross Yearly Salary</label>
-                        <span id="label-salary" class="text-sm font-mono font-bold text-emerald-400">$150,000</span>
-                    </div>
-                    <input type="range" id="input-salary" min="0" max="1000000" step="5000" value="150000" oninput="updateSalary(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+    <div class="flex justify-between items-center mb-1">
+        
+        <div class="flex items-center gap-1">
+            <label class="text-sm font-medium text-slate-300">
+                Gross Yearly Salary
+            </label>
+            
+            <div class="group relative flex items-center cursor-help">
+                <span class="material-icons text-slate-500 hover:text-slate-300 text-sm">info</span>
+                
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 bg-slate-950 border border-slate-800 text-slate-300 text-[11px] leading-relaxed p-3 rounded-xl shadow-xl z-50 pointer-events-none">
+                    <p class="font-semibold text-white mb-1">Gross Yearly Salary</p>
+                    For the most accurate deficit calculation, enter the value from Box 5 (Medicare wages and tips) on your W-2 form.
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950"></div>
                 </div>
+            </div>
+        </div>
+
+        <span id="label-salary" class="text-sm font-mono font-bold text-emerald-400">$150,000</span>
+    </div>
+    <input type="range" id="input-salary" min="0" max="1000000" step="5000" value="150000" oninput="updateSalary(this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+</div>
 
                 <div>
                     <div class="flex justify-between items-center mb-1">
