@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.3.1</title>
+    <title>Beardzley Retirement Simulator v.9.3.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.1</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.2</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -979,10 +979,40 @@
                                 currentBridge = 0;
                                 currentCash = 0;
 
+                                // Force the living expenses to pull from Core/HSA during the gap years
                                 for (let padAge = age; padAge < d.endAge; padAge++) {
-                                    // Let Core/HSA grow cleanly at market rates during the insolvent bridge gap
-                                    currentCore *= (1 + annualReturnCore);
-                                    currentHSA *= (1 + annualReturnCore);
+                                    const padYearIndex = padAge - d.startAge;
+                                    
+                                    // Calculate what we need to survive this year
+                                    let gapNeed = preCalcSpending[padYearIndex] + 
+                                                  preCalcHealthPremium[padYearIndex] + 
+                                                  preCalcLtcCost[padYearIndex];
+                                                  
+                                    if (padAge >= 67) gapNeed = Math.max(0, gapNeed - (d.socialSecurity * 12));
+                                    if (preCalcPension[padYearIndex] > 0) gapNeed = Math.max(0, gapNeed - preCalcPension[padYearIndex]);
+
+                                    // Add the 10% early withdrawal penalty if we are under 60 and not 55/15 eligible
+                                    let is5515Eligible = (d.rule5515 && d.retirementAge >= 55 && padAge >= 55);
+                                    if (padAge < 60 && !is5515Eligible) {
+                                        gapNeed *= 1.10; 
+                                    }
+
+                                    // Apply the tax drag estimate roughly to the withdrawal
+                                    let yearTaxBracket = preCalcTaxBrackets[padYearIndex];
+                                    let estimatedGapTax = calculateAnnualTax(gapNeed, 0, 0.50, 0, yearTaxBracket);
+                                    let totalGapPull = gapNeed + estimatedGapTax;
+
+                                    // Subtract the survival cost from the remaining assets
+                                    if (currentCore > totalGapPull) {
+                                        currentCore = (currentCore - totalGapPull) * (1 + annualReturnCore);
+                                    } else {
+                                        let remainder = totalGapPull - currentCore;
+                                        currentCore = 0;
+                                        if (padAge >= 65) {
+                                            currentHSA = Math.max(0, (currentHSA - remainder) * (1 + annualReturnCore));
+                                        }
+                                    }
+
                                     if (currentDebt > 0) {
                                         currentDebt = currentDebt * (1 + d.debtRate);
                                     }
