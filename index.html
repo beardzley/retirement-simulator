@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.3.2</title>
+    <title>Beardzley Retirement Simulator v.9.3.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.2</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.3</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -1085,35 +1085,37 @@
                     terminalCombinedValues.push(totalRemainingAssets - currentDebt);
                 }
 
+                let runPerformance = terminalCombinedValues.map((val, idx) => ({ val, idx }));
+                runPerformance.sort((a, b) => a.val - b.val);
+
+                let p10Idx = runPerformance[Math.floor(iterations * 0.10)].idx;
+                let p25Idx = runPerformance[Math.floor(iterations * 0.25)].idx;
+                let medianIdx = runPerformance[Math.floor(iterations * 0.50)].idx;
+
                 let p10Combined = [], p25Combined = [], p50Combined = [];
-                let p10Bridge = [], p25Bridge = [], p50Bridge = [];
-                let p10Core = [], p25Core = [], p50Core = [];
-                let p10Cash = [], p25Cash = [], p50Cash = [];
-                
+                let p50BridgePath = [], p50CorePath = [], p50CashPath = [];
+                let p50DrawdownBridge = [], p50DrawdownCore = [], p50DrawdownCash = [], p50DrawdownHsa = [];
+                let p50DrawdownSs = [], p50DrawdownPension = [];
+
                 for (let y = 0; y < yearsCount; y++) {
-                    let yearComb = yearlyCombined[y];
-                    yearComb.sort();
-                    let yearBrid = yearlyBridge[y]; yearBrid.sort();
-                    let yearCor = yearlyCore[y]; yearCor.sort();
-                    let yearCas = yearlyCash[y]; yearCas.sort();
-
-                    p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
-                    p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
-                    p50Combined.push(yearComb[Math.floor(iterations * 0.50)]);
-
-                    p10Bridge.push(yearBrid[Math.floor(iterations * 0.10)]);
-                    p25Bridge.push(yearBrid[Math.floor(iterations * 0.25)]);
-                    p50Bridge.push(yearBrid[Math.floor(iterations * 0.50)]);
-
-                    p10Core.push(yearCor[Math.floor(iterations * 0.10)]);
-                    p25Core.push(yearCor[Math.floor(iterations * 0.25)]);
-                    p50Core.push(yearCor[Math.floor(iterations * 0.50)]);
+                    p10Combined.push(yearlyCombined[y][p10Idx]);
+                    p25Combined.push(yearlyCombined[y][p25Idx]);
+                    p50Combined.push(yearlyCombined[y][medianIdx]);
                     
-                    p10Cash.push(yearCas[Math.floor(iterations * 0.10)]);
-                    p25Cash.push(yearCas[Math.floor(iterations * 0.25)]);
-                    p50Cash.push(yearCas[Math.floor(iterations * 0.50)]);
+                    p50BridgePath.push(yearlyBridge[y][medianIdx]);
+                    p50CorePath.push(yearlyCore[y][medianIdx]);
+                    p50CashPath.push(yearlyCash[y][medianIdx]);
+
+
+                    p50DrawdownBridge.push(yearlyCombined[y][medianIdx] <= 0 ? 0 : sumBrokeragePull[y] / iterations);
+                    p50DrawdownCore.push(yearlyCombined[y][medianIdx] <= 0 ? 0 : sumCorePull[y] / iterations);
+                    p50DrawdownCash.push(yearlyCombined[y][medianIdx] <= 0 ? 0 : sumCashPull[y] / iterations);
+                    p50DrawdownHsa.push(yearlyCombined[y][medianIdx] <= 0 ? 0 : sumHsaPull[y] / iterations);
+                    p50DrawdownSs.push(yearlyCombined[y][medianIdx] <= 0 ? 0 : sumSsPull[y] / iterations);
+                    p50DrawdownPension.push(yearlyCombined[y][medianIdx] <= 0 ? 0 : sumPensionPull[y] / iterations);
                 }
 
+                
                 terminalCombinedValues.sort((a, b) => a - b);
                 retirementCombinedValues.sort((a, b) => a - b);
                 retirementBridgeValues.sort((a, b) => a - b);
@@ -1133,8 +1135,7 @@
                 for(let a = d.startAge; a < d.retirementAge; a++) {
                     if (projectedDebt > 0) projectedDebt = (projectedDebt * (1 + d.debtRate)) - Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate));
                 }
-                let activeDebtSpend = (projectedDebt > 0) ?
-                    Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
+                let activeDebtSpend = (projectedDebt > 0) ? Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
                 
                 let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend + activeDebtSpend) / Math.max(medianRetAssets, 1)) * 100;
                 let isExceeded = rawWRate > 100 || medianRetAssets <= 0;
@@ -1157,18 +1158,18 @@
                     withdrawalRate: wRate,
                     iwrExceeded: isExceeded,
                     plotCombined: [p10Combined, p25Combined, p50Combined], 
-                    plotBridge: [p10Bridge, p25Bridge, p50Bridge], 
-                    plotCore: [p10Core, p25Core, p50Core],
-                    plotCash: [p10Cash, p25Cash, p50Cash],
-                    drawdownBridge: Array.from(sumBrokeragePull).map(v => v / iterations),
-                    drawdownCore: Array.from(sumCorePull).map(v => v / iterations),
-                    drawdownCash: Array.from(sumCashPull).map(v => v / iterations),
-                    drawdownHsa: Array.from(sumHsaPull).map(v => v / iterations),
-                    drawdownSs: Array.from(sumSsPull).map(v => v / iterations),
-                    drawdownPension: Array.from(sumPensionPull).map(v => v / iterations)
+                    plotBridge: [p10Combined.map((_, i) => p50BridgePath[i]), p25Combined.map((_, i) => p50BridgePath[i]), p50BridgePath], 
+                    plotCore: [p10Combined.map((_, i) => p50CorePath[i]), p25Combined.map((_, i) => p50CorePath[i]), p50CorePath],
+                    plotCash: [p10Combined.map((_, i) => p50CashPath[i]), p25Combined.map((_, i) => p50CashPath[i]), p50CashPath],
+                    
+                    drawdownBridge: p50DrawdownBridge,
+                    drawdownCore: p50DrawdownCore,
+                    drawdownCash: p50DrawdownCash,
+                    drawdownHsa: p50DrawdownHsa,
+                    drawdownSs: p50DrawdownSs,
+                    drawdownPension: p50DrawdownPension
                 });
             };
-        `;
 
         const safeStorage = {
             getItem(key) { try { return window.localStorage ? window.localStorage.getItem(key) : null; } catch (e) { return null; } },
