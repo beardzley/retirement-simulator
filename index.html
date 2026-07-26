@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.3.5</title>
+    <title>Beardzley Retirement Simulator v.9.3.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.5</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.3.6</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -600,7 +600,7 @@
                     <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <span class="material-icons text-sm">account_balance</span> Tax Drag Strategy
                     </h3>
-                    <p class="text-[10px] text-slate-400 leading-relaxed">Structural placeholder for AGI straddle modeling. Will estimate lifetime tax drag based on progressive brackets and asset splits to optimize sales across tax years.</p>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">Estimates lifetime tax drag based on progressive brackets and asset splits to optimize sales across tax years.</p>
                     <div id="right-rail-tax-placeholder" class="mt-4 h-24 bg-slate-900 border border-slate-800/80 rounded-xl flex items-center justify-center text-slate-500 text-[11px] font-semibold tracking-wide">
                         [Module Pending Setup]
                     </div>
@@ -641,9 +641,11 @@
             </div>
         </section>
     </main>
-    
     <script>
-     const workerCode = `
+        // ============================================================================
+        // --- WEB WORKER ENGINE LAYER (BACKGROUND SIMULATION) ---
+        // ============================================================================
+        const workerCode = `
             const iterations = 10000;
             const TWO_PI = 2.0 * Math.PI;
             const MAX_YEARS = 75;
@@ -699,9 +701,6 @@
                     yearlyDrawdownSs[y].fill(0);
                     yearlyDrawdownPension[y].fill(0);
                 }
-
-                let pensionPayout = 0, pensionStartAge = 55;
-                let activeTab = 'combined', chartInstance = null, savedBaseline = null, simWorker = null, drawdownChartInstance = null, compositionChartInstance = null;
                 
                 function calculateAnnualTax(preTaxWithdrawn, brokerageWithdrawn, costBasisRatio, cashInterest, yearTaxBracket) {
                     const standardDeduction = yearTaxBracket.standardDeduction;
@@ -1176,7 +1175,122 @@
                     drawdownPension: p50DrawdownPension
                 });
             };
-        \`; // <--- THIS BACKTICK PROPERLY CLOSES THE WORKER STRING
+        `;
+
+        // ============================================================================
+        // --- SURFACE UI LAYER (MAIN BROWSER THREAD) ---
+        // ============================================================================
+
+        function cleanCurrencyInput(str) {
+            return str.replace(/[\$,\(\)\s]/g, '');
+        }
+
+        function parseCSVLine(text) {
+            let p = '', r = []; let q = false;
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i], next = text[i+1];
+                if (c === '"') { if (q && next === '"') { p += '"'; i++; } else { q = !q; } }
+                else if (c === ',' && !q) { r.push(p.trim()); p = ''; }
+                else { p += c; }
+            }
+            r.push(p.trim()); return r;
+        }
+
+        function handleCSVUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            input.value = '';
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split(/\r?\n/);
+                    ingestedRows = [];
+                    let headers = []; let valueIdx = -1, descIdx = -1, accountIdx = -1;
+
+                    for (let line of lines) {
+                        if (!line || !line.trim()) continue;
+                        let parsed = parseCSVLine(line);
+                        if (parsed.some(cell => cell && (cell.toLowerCase().includes('current value') || cell.toLowerCase().includes('balance')))) {
+                            headers = parsed.map(h => h ? h.toLowerCase() : '');
+                            valueIdx = headers.findIndex(h => h.includes('current value') || h.includes('balance') || h.includes('value'));
+                            descIdx = headers.findIndex(h => h.includes('description') || h.includes('name') || h.includes('symbol'));
+                            accountIdx = headers.findIndex(h => h.includes('account name') || h.includes('account number'));
+                            continue;
+                        }
+
+                        if (valueIdx !== -1 && parsed[valueIdx]) {
+                            let rawVal = cleanCurrencyInput(parsed[valueIdx]);
+                            let numericVal = parseFloat(rawVal);
+                            
+                            if (!isNaN(numericVal) && numericVal > 0) {
+                                let label = parsed[descIdx] || parsed[0] || "Unknown Holding";
+                                let accountName = parsed[accountIdx] || "Brokerage Asset";
+                                if (label.toLowerCase().includes('total') || label.toLowerCase().includes('disclaimer')) continue;
+                                
+                                let combinedLabelText = `${accountName} ${label}`.toLowerCase();
+                                let pool = 'bridge';
+                                if (combinedLabelText.includes('hsa') || combinedLabelText.includes('health savings')) pool = 'hsa';
+                                else if (combinedLabelText.includes('ira') || combinedLabelText.includes('401k') || combinedLabelText.includes('roth')) pool = 'core';
+
+                                ingestedRows.push({ label: `${accountName} - ${label}`, value: numericVal, pool });
+                            }
+                        }
+                    }
+                    if (ingestedRows.length === 0) return alert("Unable to parse CSV summary data positions.");
+                    openCSVModal();
+                } catch (err) { alert("CSV processing failure."); }
+            };
+            reader.readAsText(file);
+        }
+
+        function openCSVModal() {
+            const container = document.getElementById('csv-rows-container'); container.innerHTML = '';
+            ingestedRows.forEach((row, idx) => {
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center bg-slate-950/40 border border-slate-800 p-3 rounded-xl gap-4";
+                item.innerHTML = `
+                    <div class="truncate max-w-[60%]">
+                        <span class="block text-xs font-semibold text-white truncate">${row.label}</span>
+                        <span class="block text-[10px] font-mono text-slate-400 mt-0.5">$${Math.round(row.value).toLocaleString()}</span>
+                    </div>
+                    <div class="flex gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                        <button onclick="toggleRowPool(${idx}, 'bridge')" id="modal-btn-bridge-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${row.pool==='bridge'?'bg-emerald-600 text-white shadow':'text-slate-400'}">Bridge</button>
+                        <button onclick="toggleRowPool(${idx}, 'core')" id="modal-btn-core-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${row.pool==='core'?'bg-cyan-600 text-white shadow':'text-slate-400'}">Core</button>
+                        <button onclick="toggleRowPool(${idx}, 'hsa')" id="modal-btn-hsa-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${row.pool==='hsa'?'bg-purple-600 text-white shadow':'text-slate-400'}">HSA</button>
+                    </div>`;
+                container.appendChild(item);
+            });
+            document.getElementById('csv-modal').classList.remove('hidden'); recalculateModalTotals();
+        }
+
+        function toggleRowPool(idx, target) {
+            ingestedRows[idx].pool = target;
+            ['bridge','core','hsa'].forEach(p => {
+                const el = document.getElementById(`modal-btn-${p}-${idx}`);
+                el.className = `px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ` + (p === target ? (p==='bridge'?'bg-emerald-600 text-white shadow':p==='core'?'bg-cyan-600 text-white shadow':'bg-purple-600 text-white shadow') : 'text-slate-400 hover:text-white');
+            });
+            recalculateModalTotals();
+        }
+
+        function recalculateModalTotals() {
+            let b = 0, c = 0, h = 0;
+            ingestedRows.forEach(r => { if(r.pool==='bridge') b+=r.value; else if(r.pool==='core') c+=r.value; else h+=r.value; });
+            document.getElementById('modal-bridge-total').textContent = `$${Math.round(b).toLocaleString()}`;
+            document.getElementById('modal-core-total').textContent = `$${Math.round(c).toLocaleString()}`;
+            document.getElementById('modal-hsa-total').textContent = `$${Math.round(h).toLocaleString()}`;
+        }
+
+        function applyIngestedBalances() {
+            let b = 0, c = 0, h = 0; ingestedRows.forEach(r => { if(r.pool==='bridge') b+=r.value; else if(r.pool==='core') c+=r.value; else h+=r.value; });
+            bridgeCapital = Math.round(b); coreCapital = Math.round(c); hsaStart = Math.round(h);
+            document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
+            document.getElementById('input-core').value = coreCapital; document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
+            document.getElementById('input-hsa-start').value = hsaStart; document.getElementById('label-hsa-start').textContent = `$${hsaStart.toLocaleString()}`;
+            document.getElementById('csv-modal').classList.add('hidden'); runMonteCarloSimulation();
+        }
+
+        function closeCSVModal() { document.getElementById('csv-modal').classList.add('hidden'); }
 
         const safeStorage = {
             getItem(key) { try { return window.localStorage ? window.localStorage.getItem(key) : null; } catch (e) { return null; } },
@@ -1204,48 +1318,16 @@
             const ctx = document.getElementById('compositionChart').getContext('2d');
             let timeline = [];
             for (let a = startAge; a <= endAge; a++) timeline.push(a);
-            if (window.compositionChartInstance) {
-                window.compositionChartInstance.destroy();
-            }
+            if (window.compositionChartInstance) window.compositionChartInstance.destroy();
             
             window.compositionChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: timeline,
                     datasets: [
-                        { 
-                            label: 'Cash Reserves', 
-                            data: Array.from(res.plotCash[2] || []), 
-                            backgroundColor: 'rgba(245, 158, 11, 0.3)', 
-                            borderColor: '#f59e0b',
-                            borderWidth: 2,
-                            fill: true,
-                            pointRadius: 0,
-                            tension: 0.2,
-                            stack: 'Stack 0'
-                        },
-                        { 
-                            label: 'Bridge (Taxable)', 
-                            data: Array.from(res.plotBridge[2] || []), 
-                            backgroundColor: 'rgba(59, 130, 246, 0.3)', 
-                            borderColor: '#3b82f6',
-                            borderWidth: 2,
-                            fill: true,
-                            pointRadius: 0,
-                            tension: 0.2,
-                            stack: 'Stack 0'
-                        },
-                        { 
-                            label: 'Core (401k/IRA)', 
-                            data: Array.from(res.plotCore[2] || []), 
-                            backgroundColor: 'rgba(16, 185, 129, 0.3)', 
-                            borderColor: '#10b981',
-                            borderWidth: 2,
-                            fill: true,
-                            pointRadius: 0,
-                            tension: 0.2,
-                            stack: 'Stack 0'
-                        }
+                        { label: 'Cash Reserves', data: Array.from(res.plotCash[2] || []), backgroundColor: 'rgba(245, 158, 11, 0.3)', borderColor: '#f59e0b', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' },
+                        { label: 'Bridge (Taxable)', data: Array.from(res.plotBridge[2] || []), backgroundColor: 'rgba(59, 130, 246, 0.3)', borderColor: '#3b82f6', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' },
+                        { label: 'Core (401k/IRA)', data: Array.from(res.plotCore[2] || []), backgroundColor: 'rgba(16, 185, 129, 0.3)', borderColor: '#10b981', borderWidth: 2, fill: true, pointRadius: 0, tension: 0.2, stack: 'Stack 0' }
                     ]
                 },
                 options: {
@@ -1254,33 +1336,12 @@
                         legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
                         tooltip: {
                             mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
-                            callbacks: {
-                                label: (context) => {
-                                    let val = context.raw;
-                                    if (val <= 0) return null;
-                                    return `${context.dataset.label}: $${Math.round(val).toLocaleString()}`;
-                                }
-                            }
+                            callbacks: { label: (c) => c.raw <= 0 ? null : `${c.dataset.label}: $${Math.round(c.raw).toLocaleString()}` }
                         }
                     },
                     scales: {
-                        x: { grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
-                        y: { 
-                            stacked: true, 
-                            beginAtZero: true,          
-                            suggestedMax: 1000000,      
-                            grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
-                            ticks: { 
-                                color: '#64748b', 
-                                font: { size: 10 }, 
-                                callback: (val) => {
-                                    if (val >= 10000000) return '$10M+';
-                                    if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
-                                    if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'k';
-                                    return '$' + val;
-                                } 
-                            } 
-                        }
+                        x: { grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
+                        y: { stacked: true, beginAtZero: true, suggestedMax: 1000000, grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => v >= 1000000 ? '$' + (v / 1000000).toFixed(1) + 'M' : v >= 1000 ? '$' + (v / 1000).toFixed(0) + 'k' : '$' + v } }
                     },
                     interaction: { mode: 'index', intersect: false }
                 }
@@ -1319,181 +1380,15 @@
         function runMonteCarloSimulation() {
             document.getElementById('processing-indicator').classList.remove('hidden');
             syncNetWorthSummaryPanel();
-            
             if (simTimeout) clearTimeout(simTimeout);
-            
             simTimeout = setTimeout(() => {
                 const rothCatchUp = document.getElementById('toggle-roth-catchup')?.checked || false;
                 const bridgeDerisk = document.getElementById('toggle-bridge-derisk')?.checked || false;
-                const simulationConfig = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, bridgeDerisk, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge, employerMatch, megaBackdoor };
-                
+                const config = { startAge, retirementAge, endAge, savingsTaxable, savings401k, savingsRoth, rothCatchUp, bridgeDerisk, savingsHSA, savingsCash, spending, bridgeCapital, coreCapital, hsaStart, cashReserve, meanReturnBridge, stdDevBridge, meanReturnCore, stdDevCore, cashYield, inflationRate, medInflationRate, healthPremium, socialSecurity, ltcCost, stateTaxRate, rule5515, dynamicSpending, debtStart, debtRate, debtPayment, pensionPayout, pensionStartAge, employerMatch, megaBackdoor };
                 if (!simWorker) initWorker();
-                simWorker.postMessage(simulationConfig);
+                simWorker.postMessage(config);
             }, 150);
         }
-
-        function parseCSVLine(text) {
-            let p = '', r = [];
-            let q = false;
-            for (let i = 0; i < text.length; i++) {
-                let c = text[i], next = text[i+1];
-                if (c === '"') { if (q && next === '"') { p += '"'; i++; } else { q = !q; } }
-                else if (c === ',' && !q) { r.push(p.trim()); p = ''; }
-                else { p += c; }
-            }
-            r.push(p.trim()); return r;
-        }
-
-        function handleCSVUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-            
-            input.value = ''; 
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const text = e.target.result;
-                    const lines = text.split(/\r?\n/);
-                    ingestedRows = [];
-                    let headers = [];
-                    let valueIdx = -1, descIdx = -1, accountIdx = -1;
-
-                    for (let line of lines) {
-                        if (!line || !line.trim()) continue;
-                        let parsed = parseCSVLine(line);
-                        if (parsed.some(cell => cell && (cell.toLowerCase().includes('current value') || cell.toLowerCase().includes('balance')))) {
-                            headers = parsed.map(h => h ? h.toLowerCase() : '');
-                            valueIdx = headers.findIndex(h => h.includes('current value') || h.includes('balance') || h.includes('value'));
-                            descIdx = headers.findIndex(h => h.includes('description') || h.includes('name') || h.includes('symbol'));
-                            accountIdx = headers.findIndex(h => h.includes('account name') || h.includes('account number'));
-                            continue;
-                        }
-
-                        if (valueIdx !== -1 && parsed[valueIdx]) {
-                            let rawVal = parsed[valueIdx].replace(/[\$,\(\)\s]/g, '');
-                            let numericVal = parseFloat(rawVal);
-                            
-                            if (!isNaN(numericVal) && numericVal > 0) {
-                                let label = "Unknown Holding";
-                                if (descIdx !== -1 && parsed[descIdx]) label = parsed[descIdx];
-                                else if (parsed[0]) label = parsed[0];
-                                
-                                let accountName = "Brokerage Asset";
-                                if (accountIdx !== -1 && parsed[accountIdx]) accountName = parsed[accountIdx];
-                                
-                                if (label.toLowerCase().includes('total') || label.toLowerCase().includes('disclaimer')) continue;
-                                
-                                let combinedLabelText = `${accountName} ${label}`.toLowerCase();
-                                let initialPoolSelection = 'bridge'; 
-
-                                if (combinedLabelText.includes('health savings account') || combinedLabelText.includes('hsa')) {
-                                    initialPoolSelection = 'hsa';
-                                } else if (combinedLabelText.includes('ira') || combinedLabelText.includes('401k') || combinedLabelText.includes('403b') || combinedLabelText.includes('roth')) {
-                                    initialPoolSelection = 'core';
-                                } else if (combinedLabelText.includes('individual') || combinedLabelText.includes('brokerage')) {
-                                    initialPoolSelection = 'bridge';
-                                }
-
-                                ingestedRows.push({ label: `${accountName} - ${label}`, value: numericVal, pool: initialPoolSelection });
-                            }
-                        }
-                    }
-
-                    if (ingestedRows.length === 0) {
-                        alert("Unable to map asset balance rows. Please verify this is a standardized positions summary file export.");
-                        return;
-                    }
-                    openCSVModal();
-                } catch (err) {
-                    console.error("CSV Parse Error:", err);
-                    alert("An error occurred while reading the CSV. See console for details.");
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function openCSVModal() {
-            const container = document.getElementById('csv-rows-container');
-            container.innerHTML = '';
-            
-            ingestedRows.forEach((row, idx) => {
-                const item = document.createElement('div');
-                item.className = "flex justify-between items-center bg-slate-950/40 border border-slate-800 p-3 rounded-xl gap-4";
-                
-                const bridgeClass = row.pool === 'bridge' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white";
-                const coreClass = row.pool === 'core' ? "bg-cyan-600 text-white shadow" : "text-slate-400 hover:text-white";
-                const hsaClass = row.pool === 'hsa' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white";
-
-                item.innerHTML = `
-                    <div class="truncate max-w-[60%]">
-                        <span class="block text-xs font-semibold text-white truncate" title="${row.label}">${row.label}</span>
-                        <span class="block text-[10px] font-mono text-slate-400 mt-0.5">$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                    </div>
-                    <div class="flex gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
-                        <button onclick="toggleRowPool(${idx}, 'bridge')" id="modal-btn-bridge-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${bridgeClass}">Bridge</button>
-                        <button onclick="toggleRowPool(${idx}, 'core')" id="modal-btn-core-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${coreClass}">Core</button>
-                        <button onclick="toggleRowPool(${idx}, 'hsa')" id="modal-btn-hsa-${idx}" class="px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${hsaClass}">HSA</button>
-                    </div>
-                `;
-                container.appendChild(item);
-            });
-            
-            document.getElementById('csv-modal').classList.remove('hidden');
-            recalculateModalTotals();
-        }
-
-        function toggleRowPool(idx, targetPool) {
-            ingestedRows[idx].pool = targetPool;
-            const bBtn = document.getElementById(`modal-btn-bridge-${idx}`);
-            const cBtn = document.getElementById(`modal-btn-core-${idx}`);
-            const hBtn = document.getElementById(`modal-btn-hsa-${idx}`);
-            bBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'bridge' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white");
-            cBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'core' ? "bg-cyan-600 text-white shadow" : "text-slate-400 hover:text-white");
-            hBtn.className = "px-2.5 py-1 text-[10px] font-bold rounded-md transition-all " + (targetPool === 'hsa' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white");
-            recalculateModalTotals();
-        }
-
-        function recalculateModalTotals() {
-            let bTot = 0, cTot = 0, hTot = 0;
-            ingestedRows.forEach(r => { 
-                if (r.pool === 'bridge') bTot += r.value; 
-                else if (r.pool === 'core') cTot += r.value; 
-                else if (r.pool === 'hsa') hTot += r.value;
-            });
-            document.getElementById('modal-bridge-total').textContent = `$${Math.round(bTot).toLocaleString()}`;
-            document.getElementById('modal-core-total').textContent = `$${Math.round(cTot).toLocaleString()}`;
-            document.getElementById('modal-hsa-total').textContent = `$${Math.round(hTot).toLocaleString()}`;
-        }
-
-        function applyIngestedBalances() {
-            let finalBridge = 0, finalCore = 0, finalHSA = 0;
-            ingestedRows.forEach(r => { 
-                if (r.pool === 'bridge') finalBridge += r.value; 
-                else if (r.pool === 'core') finalCore += r.value; 
-                else if (r.pool === 'hsa') finalHSA += r.value; 
-            });
-            if (finalBridge > 2000000) document.getElementById('input-bridge').max = Math.ceil(finalBridge * 1.2);
-            if (finalCore > 2000000) document.getElementById('input-core').max = Math.ceil(finalCore * 1.2);
-            if (finalHSA > 150000) document.getElementById('input-hsa-start').max = Math.ceil(finalHSA * 1.2);
-            
-            bridgeCapital = Math.round(finalBridge);
-            coreCapital = Math.round(finalCore);
-            hsaStart = Math.round(finalHSA);
-            document.getElementById('input-bridge').value = bridgeCapital;
-            document.getElementById('input-core').value = coreCapital;
-            document.getElementById('input-hsa-start').value = hsaStart;
-            
-            document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
-            document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
-            document.getElementById('label-hsa-start').textContent = `$${hsaStart.toLocaleString()}`;
-
-            closeCSVModal();
-            showNotification("Portfolio statement assets imported successfully!");
-            runMonteCarloSimulation();
-        }
-
-        function closeCSVModal() { document.getElementById('csv-modal').classList.add('hidden'); }
 
         function updateDOMMetrics(res) {
             document.getElementById('panel-projected-net-worth').textContent = `$${Math.round(res.medianRetNW).toLocaleString()}`;
@@ -1506,179 +1401,73 @@
             
             const iwrEl = document.getElementById('stat-withdrawal-rate');
             const iwrVal = parseFloat(iwrDisplay);
-            iwrEl.className = `text-3xl font-extrabold tracking-tight mt-1 ${iwrVal > 5 ? 'text-red-400' : iwrVal > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
-            const iwrWarning = document.getElementById('warning-iwr');
-            if (iwrWarning) {
-                if (res.iwrExceeded) {
-                    iwrWarning.classList.remove('hidden');
-                    iwrWarning.classList.add('inline-flex');
-                } else {
-                    iwrWarning.classList.add('hidden');
-                    iwrWarning.classList.remove('inline-flex');
-                }
-            }
+            iwrEl.className = `text-3xl font-extrabold mt-1 ${iwrVal > 5 ? 'text-red-400' : iwrVal > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
             
             const sRate = document.getElementById('stat-success-rate');
             sRate.textContent = `${res.successRate}%`;
-            sRate.className = `text-3xl font-extrabold tracking-tight mt-1 ${res.successRate >= 85 ? 'text-emerald-400' : res.successRate >= 60 ? 'text-amber-400' : 'text-red-400'}`;
+            sRate.className = `text-3xl font-extrabold mt-1 ${res.successRate >= 85 ? 'text-emerald-400' : res.successRate >= 60 ? 'text-amber-400' : 'text-red-400'}`;
             
             document.getElementById('stat-bridge-survival').textContent = `${res.bridgeSurvivalRate}%`;
             
-            let medianEstateVal = Math.round(res.medianEstate);
-            if (medianEstateVal > 0) {
-                document.getElementById('stat-median-estate').textContent = `$${medianEstateVal.toLocaleString()}`;
-                document.getElementById('stat-median-estate').className = "text-3xl font-extrabold tracking-tight text-white mt-1";
-                document.getElementById('stat-median-estate-sub').innerHTML = "Expressed in future dollars";
-                document.getElementById('stat-median-estate-sub').className = "text-[10px] text-slate-500 mt-1";
+            let estate = Math.round(res.medianEstate);
+            if (estate > 0) {
+                document.getElementById('stat-median-estate').textContent = `$${estate.toLocaleString()}`;
+                document.getElementById('stat-median-estate').className = "text-3xl font-extrabold text-white mt-1";
+                document.getElementById('stat-median-estate-sub').textContent = "Expressed in future dollars";
             } else {
                 document.getElementById('stat-median-estate').textContent = `$0`;
-                document.getElementById('stat-median-estate').className = "text-3xl font-extrabold tracking-tight text-red-400 mt-1";
-                
-                let depletionAge = endAge;
-                let medianPath = res.plotCombined[2];
-                for (let i = 0; i < medianPath.length; i++) {
-                    if (medianPath[i] <= 0) {
-                        depletionAge = startAge + i;
-                        break;
-                    }
-                }
-                document.getElementById('stat-median-estate-sub').innerHTML = `<span class="text-red-400 font-bold">Depleted at Age ${depletionAge}</span>`;
-                document.getElementById('stat-median-estate-sub').className = "text-[10px] mt-1";
-            }
-            
-            if (res.p25 !== undefined) {
-                const getBoundDisplay = (val, pathIdx) => {
-                    if (val > 0) return `$${Math.round(val).toLocaleString()}`;
-                    let path = res.plotCombined[pathIdx];
-                    let depAge = endAge;
-                    for (let i = 0; i < path.length; i++) {
-                        if (path[i] <= 0) {
-                            depAge = startAge + i;
-                            break;
-                        }
-                    }
-                    return `<span class="text-red-400 font-bold">Depleted at Age ${depAge}</span>`;
-                };
-
-                document.getElementById('stat-p50').innerHTML = getBoundDisplay(res.medianEstate, 2);
-                document.getElementById('stat-p25').innerHTML = getBoundDisplay(res.p25, 1);
-                document.getElementById('stat-p10').innerHTML = getBoundDisplay(res.p10, 0);
+                document.getElementById('stat-median-estate').className = "text-3xl font-extrabold text-red-400 mt-1";
+                let depAge = endAge;
+                for (let i = 0; i < res.plotCombined[2].length; i++) { if (res.plotCombined[2][i] <= 0) { depAge = startAge + i; break; } }
+                document.getElementById('stat-median-estate-sub').innerHTML = `<span class="text-red-400 font-bold">Depleted at Age ${depAge}</span>`;
             }
 
-            const taxContainer = document.getElementById('right-rail-tax-placeholder');
-            if (taxContainer && res.medianLifetimeTax !== undefined) {
-                taxContainer.className = "mt-4 bg-slate-900 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-center";
-                taxContainer.innerHTML = `
-                    <span class="text-slate-400 text-[10px] uppercase tracking-wide font-semibold mb-1">Median Lifetime Tax Paid</span>
-                    <span class="font-mono text-xl font-bold text-amber-400">$${Math.round(res.medianLifetimeTax).toLocaleString()}</span>
-                    <span class="text-[9px] text-slate-500 mt-1">Total projected drag across progressive brackets</span>
-                `;
+            document.getElementById('stat-p50').textContent = estate > 0 ? `$${estate.toLocaleString()}` : "$0";
+            document.getElementById('stat-p25').textContent = res.p25 > 0 ? `$${Math.round(res.p25).toLocaleString()}` : "$0";
+            document.getElementById('stat-p10').textContent = res.p10 > 0 ? `$${Math.round(res.p10).toLocaleString()}` : "$0";
+
+            const taxPlaceholder = document.getElementById('right-rail-tax-placeholder');
+            if (taxPlaceholder) {
+                taxPlaceholder.className = "mt-4 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-center";
+                taxPlaceholder.innerHTML = `<span class="text-slate-400 text-[10px] uppercase font-semibold mb-1">Median Lifetime Tax Paid</span><span class="font-mono text-xl font-bold text-amber-400">$${Math.round(res.medianLifetimeTax).toLocaleString()}</span><span class="text-[9px] text-slate-500 mt-1">Total projected drag across brackets</span>`;
             }
 
             const rule55Container = document.getElementById('right-rail-55-placeholder');
             if (rule55Container) {
                 if (retirementAge >= 55 && document.getElementById('toggle-5515').checked) {
-                    rule55Container.innerHTML = `
-                        <div class="w-12 h-12 rounded-full border-[3px] border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-sm shadow-inner bg-emerald-500/10 shrink-0">
-                            ${res.savedBy5515Rate}%
-                        </div>
-                        <div class="flex-1">
-                            <p class="text-[11px] font-bold text-slate-300">Portfolios Saved</p>
-                            <p class="text-[9px] text-slate-500 leading-snug mt-0.5">Iterations that depleted the bridge early but survived via penalty bypass.</p>
-                        </div>
-                    `;
-                } else if (retirementAge >= 55) {
-                    rule55Container.innerHTML = `
-                        <div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shadow-inner shrink-0">
-                            <span class="material-icons text-lg">lock_open</span>
-                        </div>
-                        <p class="text-[10px] text-slate-400 flex-1 leading-relaxed">Provision unlocked. Toggle the exemption to track impact.</p>
-                    `;
+                    rule55Container.innerHTML = `<div class="w-12 h-12 rounded-full border-[3px] border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-sm shadow bg-emerald-500/10 shrink-0">${res.savedBy5515Rate}%</div><div class="flex-1"><p class="text-[11px] font-bold text-slate-300">Portfolios Saved</p><p class="text-[9px] text-slate-500 mt-0.5">Survived gap via direct early penalty bypass.</p></div>`;
                 } else {
-                    rule55Container.innerHTML = `
-                        <div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shadow-inner shrink-0">
-                            <span class="material-icons text-lg">lock</span>
-                        </div>
-                        <p class="text-[10px] text-slate-400 flex-1 leading-relaxed">Provision locked. Exemption only applies when targeting age 55+.</p>
-                    `;
+                    rule55Container.innerHTML = `<div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shrink-0"><span class="material-icons text-lg">${retirementAge>=55?'lock_open':'lock'}</span></div><p class="text-[10px] text-slate-400 flex-1 leading-relaxed">${retirementAge>=55?'Exemption unlocked. Toggle switch to observe impact.':'Exemption locked. Rule only applies when targeting milestone age 55+.'}</p>`;
                 }
             }
 
-            lastSimulatedMetrics = {
-                successRate: `${res.successRate}%`, bridgeSurvivalRate: `${res.bridgeSurvivalRate}%`,
-                medianEstateAge90: `$${Math.round(res.medianEstate).toLocaleString()}`, projectedNWRetirement: `$${Math.round(res.medianRetNW).toLocaleString()}`,
-                projectedBridgeRetirement: `$${Math.round(res.medianRetBridge).toLocaleString()}`, projectedCoreRetirement: `$${Math.round(res.medianRetCore).toLocaleString()}`
-            };
+            lastSimulatedMetrics = { successRate: `${res.successRate}%`, bridgeSurvivalRate: `${res.bridgeSurvivalRate}%`, medianEstateAge90: `$${estate.toLocaleString()}`, projectedNWRetirement: `$${Math.round(res.medianRetNW).toLocaleString()}` };
         }
 
         function renderChartData() {
             const ctx = document.getElementById('monteCarloChart').getContext('2d');
-            let selectedPaths = globalPlotData[activeTab];
-            if (!selectedPaths || selectedPaths.length === 0) return;
-
-            let timeline = [];
-            for (let a = startAge; a <= endAge; a++) timeline.push(a);
-            const pathLabels = [
-                "Significantly Below Average Market (10th Percentile)",
-                "Below Average Market (25th Percentile)",
-                "Average Market (Median)"
-            ];
-            let accentColor = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : activeTab === 'core' ? '#9333ea' : '#eab308';
+            let paths = globalPlotData[activeTab]; if (!paths || paths.length === 0) return;
+            let timeline = []; for (let a = startAge; a <= endAge; a++) timeline.push(a);
             
-            const borderColors = [ '#ef4444', '#f59e0b', accentColor ];
-            const borderDash = [ [4, 4], [2, 2], [] ];
-            const chartDatasets = selectedPaths.map((path, idx) => ({
-                label: pathLabels[idx],
-                data: path,
-                borderColor: borderColors[idx],
-                borderWidth: idx === 2 ? 3 : 2,
-                borderDash: borderDash[idx],
-                pointRadius: 0,
-                fill: false,
-                tension: 0.1
-            }));
-            
+            let color = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : activeTab === 'core' ? '#9333ea' : '#eab308';
             if (chartInstance) chartInstance.destroy();
+            
             chartInstance = new Chart(ctx, {
                 type: 'line',
-                data: { labels: timeline, datasets: chartDatasets },
+                data: {
+                    labels: timeline,
+                    datasets: [
+                        { label: "10th Percentile (Severe Drag)", data: paths[0], borderColor: '#ef4444', borderWidth: 2, borderDash: [4,4], pointRadius: 0, fill: false },
+                        { label: "25th Percentile (Below Average)", data: paths[1], borderColor: '#f59e0b', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false },
+                        { label: "Median Target Universe", data: paths[2], borderColor: color, borderWidth: 3, pointRadius: 0, fill: false }
+                    ]
+                },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        legend: { 
-                            display: true, 
-                            labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } 
-                        },
-                        tooltip: {
-                            mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
-                            callbacks: { 
-                                label: (context) => {
-                                    let val = context.raw;
-                                    let displayVal = val >= 10000000 ? '>$10M' : '$' + Math.round(val).toLocaleString();
-                                    return `${context.dataset.label}: ${displayVal}`;
-                                } 
-                            }
-                        }
-                    },
+                    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
                     scales: {
-                        x: { 
-                            grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
-                            ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } 
-                        },
-                        y: { 
-                            max: 10000000,
-                            grid: { color: 'rgba(51, 65, 85, 0.1)' }, 
-                            ticks: { 
-                                color: '#64748b', 
-                                font: { size: 10 }, 
-                                callback: (val) => {
-                                    if (val >= 10000000) return '$10M+';
-                                    if (val >= 1000000) return '$' + (val / 1000000).toFixed(1) + 'M';
-                                    if (val >= 1000) return '$' + (val / 1000).toFixed(0) + 'k';
-                                    return '$' + val;
-                                } 
-                            } 
-                        }
+                        x: { grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+                        y: { max: 10000000, grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : '$' + (v/1000).toFixed(0) + 'k' } }
                     }
                 }
             });
@@ -1687,8 +1476,7 @@
         function renderDrawdownChart(res) {
             const ctx = document.getElementById('drawdownChart').getContext('2d');
             let offsetIndex = Math.max(0, retirementAge - startAge);
-            let timeline = [];
-            for (let a = retirementAge; a <= endAge; a++) timeline.push(a);
+            let timeline = []; for (let a = retirementAge; a <= endAge; a++) timeline.push(a);
 
             if (drawdownChartInstance) drawdownChartInstance.destroy();
             drawdownChartInstance = new Chart(ctx, {
@@ -1707,21 +1495,12 @@
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
-                        legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
-                        tooltip: {
-                            mode: 'index', intersect: false, backgroundColor: '#0f172a', titleColor: '#f8fafc', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1,
-                            callbacks: {
-                                label: (context) => {
-                                    let val = context.raw;
-                                    if (val === 0) return null;
-                                    return `${context.dataset.label}: $${Math.round(val).toLocaleString()}`;
-                                }
-                            }
-                        }
+                        legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+                        tooltip: { mode: 'index', intersect: false, callbacks: { label: (c) => c.raw === 0 ? null : `${c.dataset.label}: $${Math.round(c.raw).toLocaleString()}` } }
                     },
                     scales: {
-                        x: { stacked: true, grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v, i) => 'Age ' + timeline[i] } },
-                        y: { stacked: true, grid: { color: 'rgba(51, 65, 85, 0.1)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (val) => '$' + (val / 1000).toFixed(0) + 'k' } }
+                        x: { stacked: true, grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+                        y: { stacked: true, grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => '$' + (v/1000).toFixed(0) + 'k' } }
                     }
                 }
             });
@@ -1754,300 +1533,136 @@
         }
 
         function exportSummaryData() {
-            const saveStateObj = getFullStateObject();
-            const serializedSaveCode = btoa(JSON.stringify(saveStateObj));
-
-            const totalAnnualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA + savingsCash;
+            const state = getFullStateObject();
+            const code = btoa(JSON.stringify(state));
+            const annualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA + savingsCash;
+            
             const textSummary = `==================================================
 RETIREMENT SUMMARY REPORT
 ==================================================
 * Current Age:                  ${startAge} Years Old
 * Target Milestone Age:         ${retirementAge} Years Old
-* Bridge Market Assumptions:    ${(meanReturnBridge*100).toFixed(1)}% Return / ${(stdDevBridge*100).toFixed(1)}% Volatility
-* Core Market Assumptions:      ${(meanReturnCore*100).toFixed(1)}% Return / ${(stdDevCore*100).toFixed(1)}% Volatility
+* Bridge Assumptions:           ${(meanReturnBridge*100).toFixed(1)}% Return / ${(stdDevBridge*100).toFixed(1)}% Volatility
+* Core Assumptions:             ${(meanReturnCore*100).toFixed(1)}% Return / ${(stdDevCore*100).toFixed(1)}% Volatility
 
-ASSET DEPLOYMENT POSITIONING
+ASSET DEPLOYMENT BASELINE POSITIONING
 --------------------------------------------------
 * Current Net Worth Baseline:   $${(bridgeCapital+coreCapital+hsaStart+cashReserve-debtStart).toLocaleString()}
-  - Bridge (Taxable Pool):      $${bridgeCapital.toLocaleString()}
-  - Core (Tax-Advantaged Pool): $${coreCapital.toLocaleString()}
-  - HSA (Health Savings):       $${hsaStart.toLocaleString()}
-  - Cash Reserves Buffer:       $${cashReserve.toLocaleString()}
-  - Current Liabilities (Debt): -$${debtStart.toLocaleString()}
+  - Bridge (Taxable Brokerage): $${bridgeCapital.toLocaleString()}
+  - Core (Tax-Advantaged 401k):$${coreCapital.toLocaleString()}
+  - HSA Portfolio Segment:      $${hsaStart.toLocaleString()}
+  - Liquid Cash Reserves:       $${cashReserve.toLocaleString()}
+  - Active Liabilities (Debt): -$${debtStart.toLocaleString()}
 
-SAVINGS INJECTION VELOCITY
+SAVINGS CONTRIBUTION VELOCITY
 --------------------------------------------------
-* Gross Yearly Salary:          $${salary.toLocaleString()}/yr
-* Total Annual Contributions:   $${totalAnnualSavings.toLocaleString()}/yr
-  - Taxable Brokerage:          $${savingsTaxable.toLocaleString()}/yr
-  - Core Accounts (401k/IRA/HSA):$${(savings401k+savingsRoth+savingsHSA).toLocaleString()}/yr
-  - Cash Reserves:              $${savingsCash.toLocaleString()}/yr
-* Active Debt Payment:          $${debtPayment.toLocaleString()}/yr
-
-HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
---------------------------------------------------
-* Lifetime Survival Rate (90):  ${lastSimulatedMetrics.successRate || '100%'}
-* Bridge Survival Rate (60):    ${lastSimulatedMetrics.bridgeSurvivalRate || '100%'}
-* Median Estate Pool (Age 90):  ${lastSimulatedMetrics.medianEstateAge90 || '$0'}
+* Gross Yearly Salary Baseline: $${salary.toLocaleString()}/yr
+* Total Capital Contributions:  $${annualSavings.toLocaleString()}/yr
 ==================================================`;
 
-            try { 
-                navigator.clipboard.writeText(serializedSaveCode); 
-                showNotification("Save state string copied to clipboard!"); 
-            } catch(e){}
-            
+            try { navigator.clipboard.writeText(code); showNotification("Save state copied to clipboard!"); } catch(e){}
             const w = window.open('', '_blank');
             if (w) {
-                w.document.write(`<html><head><title>Simulation Export</title><style>body{font-family:'Courier New',monospace;padding:40px;background:#f8fafc;color:#0f172a;}.card{max-width:700px;margin:0 auto;background:white;padding:30px;border:1px solid #cbd5e1;border-radius:6px;white-space:pre-wrap;}button{font-family:sans-serif;padding:8px 14px;font-weight:600;border-radius:4px;cursor:pointer;border:1px solid #0284c7;background:#0284c7;color:white;margin-bottom:20px;}textarea{width:100%;height:60px;background:#f1f5f9;border:1px solid #cbd5e1;font-family:monospace;padding:5px;font-size:11px;box-sizing:border-box;resize:none;}</style></head><body><div class="no-p"><button onclick="window.print()">Print / Export PDF</button></div><div class="card"><h3 style="margin-top:0;">Your Quick Save Code:</h3><textarea readonly onclick="this.select()">${serializedSaveCode}</textarea>\n\n${textSummary}</div></body></html>`);
+                w.document.write(`<html><head><title>Simulation Export</title><style>body{font-family:'Courier New',monospace;padding:40px;background:#f8fafc;}textarea{width:100%;height:60px;background:#f1f5f9;border:1px solid #cbd5e1;padding:5px;font-size:11px;resize:none;}</style></head><body><button onclick="window.print()">Print PDF</button><div style="max-width:700px;margin:0 auto;background:white;padding:30px;border:1px solid #cbd5e1;white-space:pre-wrap;"><h3>Your Quick Save Code:</h3><textarea readonly onclick="this.select()">${code}</textarea>\n\n${textSummary}</div></body></html>`);
                 w.document.close();
             }
         }
 
         function saveCurrentAsBaseline() {
-            const state = getFullStateObject();
-            savedBaseline = state; 
+            const state = getFullStateObject(); savedBaseline = state;
             safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
-            showNotification("Your structural configuration baseline is locked!"); 
-            updateBaselineButtons();
+            showNotification("Your custom configuration baseline is locked!"); updateBaselineButtons();
         }
 
         function loadUserBaseline() {
             let state = savedBaseline || JSON.parse(safeStorage.getItem('retirement_sim_baseline_10k'));
-            if (state) { applyState(state); showNotification("Snapped to custom configuration baseline!"); }
+            if (state) { applyState(state); showNotification("Snapped to baseline configuration!"); }
         }
 
         function applyState(s) {
-            startAge = s.startAge;
-            retirementAge = s.retirementAge; 
-            salary = s.salary !== undefined ? s.salary : 150000;
-            
-            savingsTaxable = s.savingsTaxable || 0; 
-            savings401k = s.savings401k || 0;
-            employerMatch = s.employerMatch || 0;
-            megaBackdoor = s.megaBackdoor || 0;
-            savingsRoth = s.savingsRoth || 0; 
-            savingsHSA = s.savingsHSA || 0; 
-            savingsCash = s.savingsCash || 0; 
-            
-            lock401k = s.lock401k || false;
-            lockMatch = s.lockMatch || false;
-            lockMega = s.lockMega || false;
-
-            spending = s.spending;
-            bridgeCapital = s.bridgeCapital || 0; 
-            coreCapital = s.coreCapital || 0;
-            hsaStart = s.hsaStart || 0; 
-            cashReserve = s.cashReserve || 0; 
-            
-            meanReturnBridge = s.meanReturnBridge || 0.08; 
-            stdDevBridge = s.stdDevBridge || 0.18;
-            meanReturnCore = s.meanReturnCore || 0.07; 
-            stdDevCore = s.stdDevCore || 0.12; 
-            
-            cashYield = s.cashYield !== undefined ? s.cashYield : 0.0329; 
+            startAge = s.startAge; retirementAge = s.retirementAge; salary = s.salary !== undefined ? s.salary : 150000;
+            savingsTaxable = s.savingsTaxable || 0; savings401k = s.savings401k || 0;
+            employerMatch = s.employerMatch || 0; megaBackdoor = s.megaBackdoor || 0;
+            savingsRoth = s.savingsRoth || 0; savingsHSA = s.savingsHSA || 0; savingsCash = s.savingsCash || 0;
+            lock401k = s.lock401k || false; lockMatch = s.lockMatch || false; lockMega = s.lockMega || false;
+            spending = s.spending; bridgeCapital = s.bridgeCapital || 0; coreCapital = s.coreCapital || 0;
+            hsaStart = s.hsaStart || 0; cashReserve = s.cashReserve || 0;
+            meanReturnBridge = s.meanReturnBridge || 0.08; stdDevBridge = s.stdDevBridge || 0.18;
+            meanReturnCore = s.meanReturnCore || 0.07; stdDevCore = s.stdDevCore || 0.12;
+            cashYield = s.cashYield !== undefined ? s.cashYield : 0.0329;
             inflationRate = s.inflationRate !== undefined ? s.inflationRate : 0.025;
             medInflationRate = s.medInflationRate !== undefined ? s.medInflationRate : 0.05;
-            
-            healthPremium = s.healthPremium || 0; 
-            socialSecurity = s.socialSecurity || 0; 
-            pensionPayout = s.pensionPayout || 0;
-            pensionStartAge = s.pensionStartAge || 55;
-            ltcCost = s.ltcCost || 0; 
-            stateTaxRate = s.stateTaxRate || 0;
-            
-            rule5515 = s.rule5515 || false;
-            dynamicSpending = s.dynamicSpending !== undefined ? s.dynamicSpending : true;
-            
-            debtStart = s.debtStart || 0; 
-            debtRate = s.debtRate !== undefined ? s.debtRate : 0.05;
-            debtPayment = s.debtPayment || 0;
-            
-            // --- UI ELEMENT BINDINGS ---
-            document.getElementById('input-current-age').value = startAge; 
-            document.getElementById('label-current-age').textContent = startAge;
-            
-            document.getElementById('input-salary').value = salary; 
-            document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`;
-            
-            document.getElementById('input-savings-taxable').value = savingsTaxable; 
-            document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`;
-            
-            document.getElementById('input-savings-401k').value = savings401k; 
-            document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
-            
-            if(document.getElementById('input-employer-match')) { 
-                document.getElementById('input-employer-match').value = employerMatch; 
-                document.getElementById('label-employer-match').textContent = `$${employerMatch.toLocaleString()}/yr`; 
-            }
-            if(document.getElementById('input-mega-backdoor')) { 
-                document.getElementById('input-mega-backdoor').value = megaBackdoor; 
-                document.getElementById('label-mega-backdoor').textContent = `$${megaBackdoor.toLocaleString()}/yr`; 
-            }
-            
-            document.getElementById('input-savings-roth').value = savingsRoth; 
-            document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`;
-            
-            document.getElementById('input-savings-hsa').value = savingsHSA; 
-            document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`;
-            
-            if(document.getElementById('input-savings-cash')) { 
-                document.getElementById('input-savings-cash').value = savingsCash; 
-                document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; 
-            }
-            
-            document.getElementById('input-spending').value = spending; 
-            document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`;
-            
-            document.getElementById('input-bridge').value = bridgeCapital; 
-            document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
-            
-            document.getElementById('input-core').value = coreCapital; 
-            document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
-            
-            document.getElementById('input-hsa-start').value = hsaStart; 
-            document.getElementById('label-hsa-start').textContent = `$${hsaStart.toLocaleString()}`;
-            
-            document.getElementById('input-cash-reserve').value = cashReserve; 
-            document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
-            
-            document.getElementById('input-return-bridge').value = (meanReturnBridge*100).toFixed(1); 
-            document.getElementById('label-return-bridge').textContent = `${(meanReturnBridge*100).toFixed(1)}%`;
-            
-            document.getElementById('input-vol-bridge').value = (stdDevBridge*100).toFixed(1); 
-            document.getElementById('label-vol-bridge').textContent = `${(stdDevBridge*100).toFixed(1)}%`;
-            
-            document.getElementById('input-return-core').value = (meanReturnCore*100).toFixed(1); 
-            document.getElementById('label-return-core').textContent = `${(meanReturnCore*100).toFixed(1)}%`;
-            
-            document.getElementById('input-vol-core').value = (stdDevCore*100).toFixed(1); 
-            document.getElementById('label-vol-core').textContent = `${(stdDevCore*100).toFixed(1)}%`;
-            
-            document.getElementById('input-cash-yield').value = (cashYield*100).toFixed(2); 
-            document.getElementById('label-cash-yield').textContent = `${(cashYield*100).toFixed(2)}%`;
-            
-            document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1); 
-            document.getElementById('label-inflation').textContent = `${(inflationRate*100).toFixed(1)}%`;
-            
-            document.getElementById('input-health').value = healthPremium; 
-            document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`;
-            
-            document.getElementById('input-ss').value = socialSecurity; 
-            document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`;
-            
-            if(document.getElementById('input-pension-payout')) { 
-                document.getElementById('input-pension-payout').value = pensionPayout; 
-                document.getElementById('label-pension-payout').textContent = `$${pensionPayout.toLocaleString()}/yr`; 
-            }
-            if(document.getElementById('input-pension-age')) { 
-                document.getElementById('input-pension-age').value = pensionStartAge; 
-                document.getElementById('label-pension-age').textContent = pensionStartAge; 
-            }
-            
-            document.getElementById('input-ltc').value = ltcCost; 
-            document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`;
-            
-            if(document.getElementById('input-state-tax')) { 
-                document.getElementById('input-state-tax').value = (stateTaxRate*100).toFixed(1); 
-                document.getElementById('label-state-tax').textContent = `${(stateTaxRate*100).toFixed(1)}%`; 
-            }
-            if(document.getElementById('input-med-inflation')) { 
-                document.getElementById('input-med-inflation').value = (medInflationRate*100).toFixed(1); 
-                document.getElementById('label-med-inflation').textContent = `${(medInflationRate*100).toFixed(1)}%`; 
-            }
-            
-            if(document.getElementById('input-debt-start')) { 
-                document.getElementById('input-debt-start').value = debtStart; 
-                document.getElementById('label-debt-start').textContent = `$${debtStart.toLocaleString()}`; 
-            }
-            if(document.getElementById('input-debt-rate')) { 
-                document.getElementById('input-debt-rate').value = (debtRate*100).toFixed(1); 
-                document.getElementById('label-debt-rate').textContent = `${(debtRate*100).toFixed(1)}%`; 
-            }
-            if(document.getElementById('input-debt-payment')) { 
-                document.getElementById('input-debt-payment').value = debtPayment; 
-                document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; 
-            }
+            healthPremium = s.healthPremium || 0; socialSecurity = s.socialSecurity || 0;
+            pensionPayout = s.pensionPayout || 0; pensionStartAge = s.pensionStartAge || 55;
+            ltcCost = s.ltcCost || 0; stateTaxRate = s.stateTaxRate || 0;
+            rule5515 = s.rule5515 || false; dynamicSpending = s.dynamicSpending !== undefined ? s.dynamicSpending : true;
+            debtStart = s.debtStart || 0; debtRate = s.debtRate !== undefined ? s.debtRate : 0.05; debtPayment = s.debtPayment || 0;
+
+            document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
+            document.getElementById('input-salary').value = salary; document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`;
+            document.getElementById('input-savings-taxable').value = savingsTaxable; document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`;
+            document.getElementById('input-savings-401k').value = savings401k; document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
+            if(document.getElementById('input-employer-match')) { document.getElementById('input-employer-match').value = employerMatch; document.getElementById('label-employer-match').textContent = `$${employerMatch.toLocaleString()}/yr`; }
+            if(document.getElementById('input-mega-backdoor')) { document.getElementById('input-mega-backdoor').value = megaBackdoor; document.getElementById('label-mega-backdoor').textContent = `$${megaBackdoor.toLocaleString()}/yr`; }
+            document.getElementById('input-savings-roth').value = savingsRoth; document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`;
+            document.getElementById('input-savings-hsa').value = savingsHSA; document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`;
+            if(document.getElementById('input-savings-cash')) { document.getElementById('input-savings-cash').value = savingsCash; document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; }
+            document.getElementById('input-spending').value = spending; document.getElementById('label-spending').textContent = `$${spending.toLocaleString()}`;
+            document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
+            document.getElementById('input-core').value = coreCapital; document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
+            document.getElementById('input-hsa-start').value = hsaStart; document.getElementById('label-hsa-start').textContent = `$${hsaStart.toLocaleString()}`;
+            document.getElementById('input-cash-reserve').value = cashReserve; document.getElementById('label-cash-reserve').textContent = `$${cashReserve.toLocaleString()}`;
+            document.getElementById('input-return-bridge').value = (meanReturnBridge*100).toFixed(1); document.getElementById('label-return-bridge').textContent = `${(meanReturnBridge*100).toFixed(1)}%`;
+            document.getElementById('input-vol-bridge').value = (stdDevBridge*100).toFixed(1); document.getElementById('label-vol-bridge').textContent = `${(stdDevBridge*100).toFixed(1)}%`;
+            document.getElementById('input-return-core').value = (meanReturnCore*100).toFixed(1); document.getElementById('label-return-core').textContent = `${(meanReturnCore*100).toFixed(1)}%`;
+            document.getElementById('input-vol-core').value = (stdDevCore*100).toFixed(1); document.getElementById('label-vol-core').textContent = `${(stdDevCore*100).toFixed(1)}%`;
+            document.getElementById('input-cash-yield').value = (cashYield*100).toFixed(2); document.getElementById('label-cash-yield').textContent = `${(cashYield*100).toFixed(2)}%`;
+            document.getElementById('input-inflation').value = (inflationRate*100).toFixed(1); document.getElementById('label-inflation').textContent = `${(inflationRate*100).toFixed(1)}%`;
+            document.getElementById('input-health').value = healthPremium; document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`;
+            document.getElementById('input-ss').value = socialSecurity; document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`;
+            if(document.getElementById('input-pension-payout')) { document.getElementById('input-pension-payout').value = pensionPayout; document.getElementById('label-pension-payout').textContent = `$${pensionPayout.toLocaleString()}/yr`; }
+            if(document.getElementById('input-pension-age')) { document.getElementById('input-pension-age').value = pensionStartAge; document.getElementById('label-pension-age').textContent = pensionStartAge; }
+            document.getElementById('input-ltc').value = ltcCost; document.getElementById('label-ltc').textContent = `$${ltcCost.toLocaleString()}/yr`;
+            if(document.getElementById('input-state-tax')) { document.getElementById('input-state-tax').value = (stateTaxRate*100).toFixed(1); document.getElementById('label-state-tax').textContent = `${(stateTaxRate*100).toFixed(1)}%`; }
+            if(document.getElementById('input-med-inflation')) { document.getElementById('input-med-inflation').value = (medInflationRate*100).toFixed(1); document.getElementById('label-med-inflation').textContent = `${(medInflationRate*100).toFixed(1)}%`; }
+            if(document.getElementById('input-debt-start')) { document.getElementById('input-debt-start').value = debtStart; document.getElementById('label-debt-start').textContent = `$${debtStart.toLocaleString()}`; }
+            if(document.getElementById('input-debt-rate')) { document.getElementById('input-debt-rate').value = (debtRate*100).toFixed(1); document.getElementById('label-debt-rate').textContent = `${(debtRate*100).toFixed(1)}%`; }
+            if(document.getElementById('input-debt-payment')) { document.getElementById('input-debt-payment').value = debtPayment; document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; }
 
             document.getElementById('toggle-5515').checked = rule5515;
             document.getElementById('toggle-dynamic-spend').checked = dynamicSpending;
-            if (document.getElementById('toggle-roth-catchup')) document.getElementById('toggle-roth-catchup').checked = s.rothCatchUp || false;
-            if (document.getElementById('toggle-bridge-derisk')) document.getElementById('toggle-bridge-derisk').checked = s.bridgeDerisk || false;
+            if(document.getElementById('toggle-roth-catchup')) document.getElementById('toggle-roth-catchup').checked = s.rothCatchUp || false;
+            if(document.getElementById('toggle-bridge-derisk')) document.getElementById('toggle-bridge-derisk').checked = s.bridgeDerisk || false;
 
             if (typeof enforce415cLimits === 'function') enforce415cLimits('none');
 
             if(document.getElementById('icon-lock-401k')) {
                 document.getElementById('icon-lock-401k').textContent = lock401k ? 'lock' : 'lock_open';
                 document.getElementById('icon-lock-401k').className = lock401k ? 'material-icons text-[14px] text-cyan-400' : 'material-icons text-[14px]';
-                document.getElementById('input-savings-401k').disabled = lock401k;
-                document.getElementById('input-savings-401k').classList.toggle('opacity-40', lock401k);
+                document.getElementById('input-savings-401k').disabled = lock401k; document.getElementById('input-savings-401k').classList.toggle('opacity-40', lock401k);
             }
             if(document.getElementById('icon-lock-match')) {
                 document.getElementById('icon-lock-match').textContent = lockMatch ? 'lock' : 'lock_open';
                 document.getElementById('icon-lock-match').className = lockMatch ? 'material-icons text-[14px] text-emerald-400' : 'material-icons text-[14px]';
-                document.getElementById('input-employer-match').disabled = lockMatch;
-                document.getElementById('input-employer-match').classList.toggle('opacity-40', lockMatch);
+                document.getElementById('input-employer-match').disabled = lockMatch; document.getElementById('input-employer-match').classList.toggle('opacity-40', lockMatch);
             }
             if(document.getElementById('icon-lock-mega')) {
                 document.getElementById('icon-lock-mega').textContent = lockMega ? 'lock' : 'lock_open';
                 document.getElementById('icon-lock-mega').className = lockMega ? 'material-icons text-[14px] text-purple-400' : 'material-icons text-[14px]';
-                document.getElementById('input-mega-backdoor').disabled = lockMega;
-                document.getElementById('input-mega-backdoor').classList.toggle('opacity-40', lockMega);
+                document.getElementById('input-mega-backdoor').disabled = lockMega; document.getElementById('input-mega-backdoor').classList.toggle('opacity-40', lockMega);
             }
-            
-            updateLabelElements();
-            setRetirementAge(retirementAge); 
+            updateLabelElements(); setRetirementAge(retirementAge);
         }
 
-        function updateCurrentAge(v) { 
-            startAge = parseInt(v);
-            document.getElementById('label-current-age').textContent = startAge; 
-            const validAges = [45, 50, 55, 62, 67];
-            if (startAge > retirementAge) {
-                let nextValidAge = validAges.find(age => age >= startAge);
-                if (!nextValidAge) nextValidAge = 67; 
-                setRetirementAge(nextValidAge); 
-            } else {
-                setRetirementAge(retirementAge);
-            }
-        }
-        
-        function setRetirementAge(age) { 
-            if (age < startAge) return;
-            retirementAge = age; 
-
-            const sliderInput = document.getElementById('input-retirement-age');
-            const sliderLabel = document.getElementById('label-retirement-age');
-            if (sliderInput && sliderLabel) {
-                sliderInput.value = age;
-                sliderLabel.textContent = age;
-                if (startAge > 45) {
-                    sliderInput.min = Math.min(startAge, 67);
-                } else {
-                    sliderInput.min = 45;
-                }
-            }
-
-            const toggle5515El = document.getElementById('toggle-5515');
-            const label5515Text = document.getElementById('label-5515-text');
-            if (age >= 55) {
-                toggle5515El.disabled = false;
-                if (label5515Text) label5515Text.classList.remove('opacity-40');
-                if (!rule5515) {
-                    toggle5515El.checked = true;
-                    rule5515 = true;
-                }
-            } else {
-                toggle5515El.disabled = true;
-                toggle5515El.checked = false;
-                rule5515 = false;
-                if (label5515Text) label5515Text.classList.add('opacity-40');
-            }
-            
-            const deriskLabel = document.getElementById('label-bridge-derisk');
-            if (deriskLabel) {
-                deriskLabel.textContent = `De-risk at Age ${age}`;
-            }
-
+        function updateCurrentAge(v) { startAge = parseInt(v); document.getElementById('label-current-age').textContent = startAge; const valid = [45, 50, 55, 62, 67]; if(startAge > retirementAge){ let next = valid.find(a => a >= startAge) || 67; setRetirementAge(next); } else { setRetirementAge(retirementAge); } }
+        function setRetirementAge(age) {
+            if(age < startAge) return; retirementAge = age;
+            const input = document.getElementById('input-retirement-age'); const label = document.getElementById('label-retirement-age');
+            if(input && label) { input.value = age; label.textContent = age; input.min = startAge > 45 ? Math.min(startAge, 67) : 45; }
+            const t55 = document.getElementById('toggle-5515'); const l55 = document.getElementById('label-5515-text');
+            if(age >= 55) { t55.disabled = false; if(l55) l55.classList.remove('opacity-40'); if(!rule5515){ t55.checked = true; rule5515 = true; } }
+            else { t55.disabled = true; t55.checked = false; rule5515 = false; if(l55) l55.classList.add('opacity-40'); }
+            const derisk = document.getElementById('label-bridge-derisk'); if(derisk) derisk.textContent = `De-risk at Age ${age}`;
             runMonteCarloSimulation();
         }
 
@@ -2055,67 +1670,47 @@ HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
         function toggleDynamicSpend(v) { dynamicSpending = v; runMonteCarloSimulation(); }
         function updateSalary(v) { salary = parseInt(v); document.getElementById('label-salary').textContent = `$${salary.toLocaleString()}`; updateLabelElements(); }
         function updateSavingsTaxable(v) { savingsTaxable = parseInt(v); document.getElementById('label-savings-taxable').textContent = `$${savingsTaxable.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
-        
-        function updateSavings401k(v) {
-            savings401k = parseInt(v);
-            enforce415cLimits('401k');
-            runMonteCarloSimulation();
-        }
+        function updateSavings401k(v) { savings401k = parseInt(v); enforce415cLimits('401k'); runMonteCarloSimulation(); }
+        function updateEmployerMatch(v) { employerMatch = parseInt(v); enforce415cLimits('match'); runMonteCarloSimulation(); }
+        function updateMegaBackdoor(v) { megaBackdoor = parseInt(v); enforce415cLimits('mega'); runMonteCarloSimulation(); }
 
-        function updateEmployerMatch(v) {
-            employerMatch = parseInt(v);
-            enforce415cLimits('match');
-            runMonteCarloSimulation();
-        }
-
-        function updateMegaBackdoor(v) {
-            megaBackdoor = parseInt(v);
-            enforce415cLimits('mega');
-            runMonteCarloSimulation();
-        }
-
-        function enforce415cLimits(activeSlider) {
+        function enforce415cLimits(active) {
             let total = savings401k + employerMatch + megaBackdoor;
             if (total > 72000) {
                 let excess = total - 72000;
-                if (activeSlider === '401k') {
-                    if (!lockMega && excess > 0) { let steal = Math.min(megaBackdoor, excess); megaBackdoor -= steal; excess -= steal; }
-                    if (!lockMatch && excess > 0) { let steal = Math.min(employerMatch, excess); employerMatch -= steal; excess -= steal; }
-                    if (excess > 0) { savings401k -= excess; }
-                    
-                } else if (activeSlider === 'match') {
-                    if (!lockMega && excess > 0) { let steal = Math.min(megaBackdoor, excess); megaBackdoor -= steal; excess -= steal; }
-                    if (!lock401k && excess > 0) { let steal = Math.min(savings401k, excess); savings401k -= steal; excess -= steal; }
-                    if (excess > 0) { employerMatch -= excess; }
-                    
-                } else if (activeSlider === 'mega') {
-                    if (!lockMatch && excess > 0) { let steal = Math.min(employerMatch, excess); employerMatch -= steal; excess -= steal; }
-                    if (!lock401k && excess > 0) { let steal = Math.min(savings401k, excess); savings401k -= steal; excess -= steal; }
-                    if (excess > 0) { megaBackdoor -= excess; }
+                if (active === '401k') {
+                    if (!lockMega && excess > 0) { let s = Math.min(megaBackdoor, excess); megaBackdoor -= s; excess -= s; }
+                    if (!lockMatch && excess > 0) { let s = Math.min(employerMatch, excess); employerMatch -= s; excess -= s; }
+                    if (excess > 0) savings401k -= excess;
+                } else if (active === 'match') {
+                    if (!lockMega && excess > 0) { let s = Math.min(megaBackdoor, excess); megaBackdoor -= s; excess -= s; }
+                    if (!lock401k && excess > 0) { let s = Math.min(savings401k, excess); savings401k -= s; excess -= s; }
+                    if (excess > 0) employerMatch -= excess;
+                } else if (active === 'mega') {
+                    if (!lockMatch && excess > 0) { let s = Math.min(employerMatch, excess); employerMatch -= s; excess -= s; }
+                    if (!lock401k && excess > 0) { let s = Math.min(savings401k, excess); savings401k -= s; excess -= s; }
+                    if (excess > 0) megaBackdoor -= excess;
                 }
-                
                 document.getElementById('input-savings-401k').value = savings401k;
                 document.getElementById('input-employer-match').value = employerMatch;
                 document.getElementById('input-mega-backdoor').value = megaBackdoor;
                 total = 72000;
             }
-            
             document.getElementById('label-savings-401k').textContent = `$${savings401k.toLocaleString()}/yr`;
             document.getElementById('label-employer-match').textContent = `$${employerMatch.toLocaleString()}/yr`;
             document.getElementById('label-mega-backdoor').textContent = `$${megaBackdoor.toLocaleString()}/yr`;
-            
             document.getElementById('label-415c-total').textContent = `Total: $${total.toLocaleString()} / $72k`;
             document.getElementById('label-415c-percent').textContent = `${Math.round((total / 72000) * 100)}%`;
             document.getElementById('bar-401k-base').style.width = `${(savings401k / 72000) * 100}%`;
             document.getElementById('bar-401k-match').style.width = `${(employerMatch / 72000) * 100}%`;
             document.getElementById('bar-401k-mega').style.width = `${(megaBackdoor / 72000) * 100}%`;
         }
-        
+
         function updateSavingsRoth(v) { savingsRoth = parseInt(v); document.getElementById('label-savings-roth').textContent = `$${savingsRoth.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsHSA(v) { savingsHSA = parseInt(v); document.getElementById('label-savings-hsa').textContent = `$${savingsHSA.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function updateSavingsCash(v) { savingsCash = parseInt(v); document.getElementById('label-savings-cash').textContent = `$${savingsCash.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
         function snapHSALimit(v) { document.getElementById('input-savings-hsa').value = v; updateSavingsHSA(v); }
-        function snapRothLimit(v) { const rothInput = document.getElementById('input-savings-roth'); rothInput.max = v === 8600 ? 8600 : 7500; rothInput.value = v; updateSavingsRoth(v); }
+        function snapRothLimit(v) { const el = document.getElementById('input-savings-roth'); el.max = v===8600?8600:7500; el.value = v; updateSavingsRoth(v); }
         function snapBridgeReturn(v) { document.getElementById('input-return-bridge').value = v; updateReturnBridge(v); }
         function updateHealth(v) { healthPremium = parseInt(v); document.getElementById('label-health').textContent = `$${healthPremium.toLocaleString()}/yr`; runMonteCarloSimulation(); }
         function updateSS(v) { socialSecurity = parseInt(v); document.getElementById('label-ss').textContent = `$${socialSecurity.toLocaleString()}/mo`; runMonteCarloSimulation(); }
@@ -2138,72 +1733,47 @@ HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
         function updateDebtStart(v) { debtStart = parseInt(v); document.getElementById('label-debt-start').textContent = `$${debtStart.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateDebtRate(v) { debtRate = parseFloat(v)/100; document.getElementById('label-debt-rate').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateDebtPayment(v) { debtPayment = parseInt(v); document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
-        
-        function updateLabelElements() { 
-            let totalSavings = savingsTaxable + savings401k + megaBackdoor + savingsRoth + savingsHSA + savingsCash;
-            document.getElementById('label-total-savings').textContent = `Total: $${totalSavings.toLocaleString()}/yr`; 
-            
-            let deficitWarning = document.getElementById('warning-deficit');
-            if (deficitWarning) {
-                if ((totalSavings + spending + debtPayment) > salary) {
-                    deficitWarning.classList.remove('hidden');
-                    deficitWarning.classList.add('flex');
-                } else {
-                    deficitWarning.classList.add('hidden');
-                    deficitWarning.classList.remove('flex');
-                }
-            }
+
+        function updateLabelElements() {
+            let tot = savingsTaxable + savings401k + megaBackdoor + savingsRoth + savingsHSA + savingsCash;
+            document.getElementById('label-total-savings').textContent = `Total: $${tot.toLocaleString()}/yr`;
+            let w = document.getElementById('warning-deficit');
+            if(w) { if((tot+spending+debtPayment)>salary){ w.classList.remove('hidden'); w.classList.add('flex'); }else{ w.classList.add('hidden'); w.classList.remove('flex'); } }
         }
 
-        function toggleLock(target) {
-            if (target === '401k') {
-                lock401k = !lock401k;
-                document.getElementById('icon-lock-401k').textContent = lock401k ? 'lock' : 'lock_open';
-                document.getElementById('icon-lock-401k').className = lock401k ? 'material-icons text-[14px] text-cyan-400' : 'material-icons text-[14px]';
-                document.getElementById('input-savings-401k').disabled = lock401k;
-                document.getElementById('input-savings-401k').classList.toggle('opacity-40', lock401k);
-            } else if (target === 'match') {
-                lockMatch = !lockMatch;
-                document.getElementById('icon-lock-match').textContent = lockMatch ? 'lock' : 'lock_open';
-                document.getElementById('icon-lock-match').className = lockMatch ? 'material-icons text-[14px] text-emerald-400' : 'material-icons text-[14px]';
-                document.getElementById('input-employer-match').disabled = lockMatch;
-                document.getElementById('input-employer-match').classList.toggle('opacity-40', lockMatch);
-            } else if (target === 'mega') {
-                lockMega = !lockMega;
-                document.getElementById('icon-lock-mega').textContent = lockMega ? 'lock' : 'lock_open';
-                document.getElementById('icon-lock-mega').className = lockMega ? 'material-icons text-[14px] text-purple-400' : 'material-icons text-[14px]';
-                document.getElementById('input-mega-backdoor').disabled = lockMega;
-                document.getElementById('input-mega-backdoor').classList.toggle('opacity-40', lockMega);
-            }
+        function toggleLock(t) {
+            let lock = t==='401k'? !lock401k : t==='match'? !lockMatch : !lockMega;
+            if(t==='401k') lock401k = lock; else if(t==='match') lockMatch = lock; else lockMega = lock;
+            let el = document.getElementById(`icon-lock-${t}`); el.textContent = lock?'lock':'lock_open';
+            el.className = lock ? `material-icons text-[14px] text-${t==='401k'?'cyan':t==='match'?'emerald':'purple'}-400` : 'material-icons text-[14px]';
+            let inp = document.getElementById(`input-savings-${t==='401k'?'401k':t==='match'?'employer-match':'mega-backdoor'}`);
+            inp.disabled = lock; inp.classList.toggle('opacity-40', lock);
         }
-        
-        function syncNetWorthSummaryPanel() { 
-            let currentNW = cashReserve + bridgeCapital + coreCapital + hsaStart - debtStart;
-            document.getElementById('panel-net-worth').textContent = `$${currentNW.toLocaleString()}`; 
-            document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`; 
+
+        function syncNetWorthSummaryPanel() {
+            let nw = cashReserve + bridgeCapital + coreCapital + hsaStart - debtStart;
+            document.getElementById('panel-net-worth').textContent = `$${nw.toLocaleString()}`;
+            document.getElementById('panel-bridge-val').textContent = `$${bridgeCapital.toLocaleString()}`;
             document.getElementById('panel-core-val').textContent = `$${coreCapital.toLocaleString()}`;
-            document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`; 
+            document.getElementById('panel-cash-val').textContent = `$${cashReserve.toLocaleString()}`;
             document.getElementById('panel-ret-age-label').textContent = retirementAge;
         }
-        
-        function switchChartTab(t) { 
+
+        function switchChartTab(t) {
             activeTab = t;
-            ['combined','bridge','core', 'cash'].forEach(tab => { 
-                document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium whitespace-nowrap" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white whitespace-nowrap"; 
+            ['combined','bridge','core','cash'].forEach(tab => {
+                document.getElementById(`tab-${tab}`).className = tab === t ? "px-4 py-2 text-xs rounded-lg bg-slate-800 text-white font-medium whitespace-nowrap" : "px-4 py-2 text-xs rounded-lg text-slate-400 hover:text-white whitespace-nowrap";
             });
-            renderChartData(); 
+            renderChartData();
         }
-        
-        function updateBaselineButtons() { 
+
+        function updateBaselineButtons() {
             let exist = !!savedBaseline || !!safeStorage.getItem('retirement_sim_baseline_10k');
-            const btn = document.getElementById('btn-reset-baseline'); 
-            if (exist) { 
-                btn.disabled = false;
-                btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 active:scale-95";
-            } else { 
-                btn.disabled = true;
-                btn.className = "flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg border border-emerald-500/20 opacity-40 cursor-not-allowed";
-            } 
+            const btn = document.getElementById('btn-reset-baseline');
+            if(btn) {
+                btn.disabled = !exist;
+                btn.className = exist ? "flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg transition-all border border-emerald-500/20 active:scale-95" : "flex items-center gap-1.5 text-xs bg-emerald-600 text-white px-3.5 py-2 rounded-lg border border-emerald-500/20 opacity-40 cursor-not-allowed";
+            }
         }
 
         window.onload = () => {
@@ -2214,6 +1784,5 @@ HIGH-RESOLUTION MODEL STATISTICAL OUTCOMES
             runMonteCarloSimulation();
         };
     </script>
-
 </body>
 </html>
