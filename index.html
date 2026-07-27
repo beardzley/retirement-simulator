@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.5.4</title>
+    <title>Beardzley Retirement Simulator v.9.5.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.4</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.5</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -1856,32 +1856,40 @@ SAVINGS CONTRIBUTION VELOCITY
 
         
         function updateLabelElements() {
+    // 1. Calculate total capital actively being saved
     let tot = savingsTaxable + savings401k + megaBackdoor + savingsRoth + savingsHSA + savingsCash;
     document.getElementById('label-total-savings').textContent = `Total: $${(tot + esppContribution).toLocaleString()}/yr`;
     
     let w = document.getElementById('warning-deficit');
     if(w) { 
+        // 2. Calculate true taxes on your base cash salary
         let estimatedCashTaxes = calculateActiveTaxes(salary, savings401k, savingsHSA);
+        let trueNetBaseSalary = salary - estimatedCashTaxes;
         
-        // Post-tax cash/shares hitting your account from RSUs
-        let netRsuCash = rsuVest * 0.70; 
+        // 3. DEFICIT CHECK A: Are you outspending your base paycheck on lifestyle?
+        if ((spending + debtPayment) > trueNetBaseSalary) {
+            let lifestyleDeficit = (spending + debtPayment) - trueNetBaseSalary;
+            w.innerHTML = `<span class="material-icons text-[12px]">error_outline</span> Lifestyle Deficit: $${Math.round(lifestyleDeficit).toLocaleString()}`;
+            w.title = `Your core living expenses ($${Math.round(spending).toLocaleString()}) exceed your net base salary ($${Math.round(trueNetBaseSalary).toLocaleString()}). You are burning cash.`;
+            w.className = "flex text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 shadow-sm items-center gap-1 cursor-help";
         
-        // True available cash: Base salary + Net RSUs - Taxes (ESPP is a savings vehicle, not a loss)
-        let trueNetPool = salary + netRsuCash - estimatedCashTaxes;
-        
-        // Total cash deployment (Living expenses + debt + your actual investments)
-        let totalOutflow = spending + debtPayment + tot + esppContribution;
-        
-        if(totalOutflow > trueNetPool) { 
-            let deficitAmount = totalOutflow - trueNetPool;
-            w.innerHTML = `<span class="material-icons text-[12px]">error_outline</span> Short by $${Math.round(deficitAmount).toLocaleString()}`;
-            w.title = `Outflow ($${Math.round(totalOutflow).toLocaleString()}) exceeds Available Net Cash ($${Math.round(trueNetPool).toLocaleString()}).`;
-            w.classList.remove('hidden'); 
-            w.classList.add('flex'); 
-        } else { 
-            w.classList.add('hidden'); 
-            w.classList.remove('flex');
-        } 
+        // 4. DEFICIT CHECK B: Is your aggressive savings plan outrunning your total comp (Base + RSUs)?
+        } else {
+            let netRsuCash = rsuVest * 0.70; // Vested equity after sell-to-cover
+            let totalAvailableEcosystemCash = trueNetBaseSalary + netRsuCash;
+            let totalOutflowIncludingSavings = spending + debtPayment + tot + esppContribution;
+            
+            if (totalOutflowIncludingSavings > totalAvailableEcosystemCash) {
+                let savingsDeficit = totalOutflowIncludingSavings - totalAvailableEcosystemCash;
+                w.innerHTML = `<span class="material-icons text-[12px]">info</span> Equity Shortfall: $${Math.round(savingsDeficit).toLocaleString()}`;
+                w.title = `Your target savings plan exceeds your total combined cash and RSU income by $${Math.round(savingsDeficit).toLocaleString()}/yr.`;
+                w.className = "flex text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30 shadow-sm items-center gap-1 cursor-help";
+            } else {
+                // Everything balances perfectly
+                w.classList.add('hidden'); 
+                w.classList.remove('flex');
+            }
+        }
     }
 }
 
