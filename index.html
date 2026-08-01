@@ -1527,10 +1527,15 @@ function updateEspp(v) {
         }
 
         function renderChartData() {
+    // 1. Guard Condition: Short-circuit if the worker hasn't returned data yet
+    if (!lastSimulatedMetricsRaw || !lastSimulatedMetricsRaw.p10Bounds) {
+        return; 
+    }
+
     const ctx = document.getElementById('monteCarloChart').getContext('2d');
     
     // Grab the single, jagged journey timeline line
-    let journeyPath = globalPlotData[activeTab][0]; 
+    let journeyPath = globalPlotData[activeTab][0];
     if (!journeyPath || journeyPath.length === 0) return;
     
     let timeline = [];
