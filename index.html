@@ -1198,44 +1198,48 @@
             let wRate = Math.min(rawWRate, 100).toFixed(1);
 
             // Single, clean data payload dispatch configuration
-            self.postMessage({
-                successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
-                bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
-                savedBy5515Rate: Math.round((savedBy5515Count / iterations) * 100),
-                medianEstate: terminalCombinedValues[Math.floor(iterations / 2)],
-                medianRetNW: medianRetAssets,
-                medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
-                medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
-                medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
-                medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
-                
-                p10: terminalCombinedValues[Math.floor(iterations * 0.10)],
-                p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
-                
-                p10Bounds: p10Combined,
-                p25Bounds: p25Combined,
-                p50Bounds: p50Combined,
-                
-                withdrawalRate: wRate,
-                iwrExceeded: isExceeded,
-                plotCombined: [journeyCombined], 
-                plotBridge: [journeyBridge], 
-                plotCore: [journeyCore],
-                plotCash: [journeyCash],
-                
-                compBridge: compBridge,
-                compCore: compCore,
-                compCash: compCash,
-                
-                drawdownBridge: p50DrawdownBridge,
-                drawdownCore: p50DrawdownCore,
-                drawdownCash: p50DrawdownCash,
-                drawdownHsa: p50DrawdownHsa,
-                drawdownSs: p50DrawdownSs,
-                drawdownPension: p50DrawdownPension
-            });
-        };
-    \`;
+self.postMessage({
+    successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
+    bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
+    savedBy5515Rate: Math.round((savedBy5515Count / iterations) * 100),
+    medianEstate: terminalCombinedValues[Math.floor(iterations / 2)],
+    medianRetNW: medianRetAssets,
+    medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
+    medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
+    medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
+    medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
+    
+    // RESTORED METRIC OBJECT PARAMETERS FOR SIDEBAR ACCURACY
+    p10: terminalCombinedValues[Math.floor(iterations * 0.10)],
+    p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
+    
+    p10Bounds: p10Combined,
+    p25Bounds: p25Combined,
+    p50Bounds: p50Combined,
+    
+    withdrawalRate: wRate,
+    iwrExceeded: isExceeded,
+    plotCombined: [journeyCombined], 
+    plotBridge: [journeyBridge], 
+    plotCore: [journeyCore],
+    plotCash: [journeyCash],
+    
+    compBridge: compBridge,
+    compCore: compCore,
+    compCash: compCash,
+    
+    drawdownBridge: p50DrawdownBridge,
+    drawdownCore: p50DrawdownCore,
+    drawdownCash: p50DrawdownCash,
+    drawdownHsa: p50DrawdownHsa,
+    drawdownSs: p50DrawdownSs,
+    drawdownPension: p50DrawdownPension
+});
+};
+`;
+
+// ============================================================================
+// --- SURFACE UI LAYER (MAIN BROWSER THREAD) ---
         // ============================================================================
         // --- SURFACE UI LAYER (MAIN BROWSER THREAD) ---
         // ============================================================================
