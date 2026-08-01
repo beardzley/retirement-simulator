@@ -1212,6 +1212,8 @@ self.postMessage({
     medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
     medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
     medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
+    
+    // RESTORED METRIC OBJECT PARAMETERS FOR SIDEBAR ACCURACY
     p10: terminalCombinedValues[Math.floor(iterations * 0.10)],
     p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
     
@@ -1237,8 +1239,6 @@ self.postMessage({
     drawdownSs: p50DrawdownSs,
     drawdownPension: p50DrawdownPension
 });
-        };
-    `;
 
         // ============================================================================
         // --- SURFACE UI LAYER (MAIN BROWSER THREAD) ---
@@ -1478,58 +1478,67 @@ function updateEspp(v) {
         }
 
         function updateDOMMetrics(res) {
-            document.getElementById('panel-projected-net-worth').textContent = `$${Math.round(res.medianRetNW).toLocaleString()}`;
-            document.getElementById('panel-proj-bridge-val').textContent = `$${Math.round(res.medianRetBridge).toLocaleString()}`;
-            document.getElementById('panel-proj-core-val').textContent = `$${Math.round(res.medianRetCore).toLocaleString()}`;
-            document.getElementById('panel-proj-cash-val').textContent = `$${Math.round(res.medianRetCash).toLocaleString()}`;
-            
-            let iwrDisplay = (res.withdrawalRate === 'NaN' || !isFinite(res.withdrawalRate)) ? '0.0' : res.withdrawalRate;
-            document.getElementById('stat-withdrawal-rate').textContent = `${iwrDisplay}%`;
-            
-            const iwrEl = document.getElementById('stat-withdrawal-rate');
-            const iwrVal = parseFloat(iwrDisplay);
-            iwrEl.className = `text-3xl font-extrabold mt-1 ${iwrVal > 5 ? 'text-red-400' : iwrVal > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
-            
-            const sRate = document.getElementById('stat-success-rate');
-            sRate.textContent = `${res.successRate}%`;
-            sRate.className = `text-3xl font-extrabold mt-1 ${res.successRate >= 85 ? 'text-emerald-400' : res.successRate >= 60 ? 'text-amber-400' : 'text-red-400'}`;
-            
-            document.getElementById('stat-bridge-survival').textContent = `${res.bridgeSurvivalRate}%`;
-            
-            let estate = Math.round(res.medianEstate);
-            if (estate > 0) {
-                document.getElementById('stat-median-estate').textContent = `$${estate.toLocaleString()}`;
-                document.getElementById('stat-median-estate').className = "text-3xl font-extrabold text-white mt-1";
-                document.getElementById('stat-median-estate-sub').textContent = "Expressed in future dollars";
-            } else {
-                document.getElementById('stat-median-estate').textContent = `$0`;
-                document.getElementById('stat-median-estate').className = "text-3xl font-extrabold text-red-400 mt-1";
-                let depAge = endAge;
-                for (let i = 0; i < res.plotCombined[2].length; i++) { if (res.plotCombined[2][i] <= 0) { depAge = startAge + i; break; } }
-                document.getElementById('stat-median-estate-sub').innerHTML = `<span class="text-red-400 font-bold">Depleted at Age ${depAge}</span>`;
+    document.getElementById('panel-projected-net-worth').textContent = `$${Math.round(res.medianRetNW).toLocaleString()}`;
+    document.getElementById('panel-proj-bridge-val').textContent = `$${Math.round(res.medianRetBridge).toLocaleString()}`;
+    document.getElementById('panel-proj-core-val').textContent = `$${Math.round(res.medianRetCore).toLocaleString()}`;
+    document.getElementById('panel-proj-cash-val').textContent = `$${Math.round(res.medianRetCash).toLocaleString()}`;
+    
+    let iwrDisplay = (res.withdrawalRate === 'NaN' || !isFinite(res.withdrawalRate)) ? '0.0' : res.withdrawalRate;
+    document.getElementById('stat-withdrawal-rate').textContent = `${iwrDisplay}%`;
+    
+    const iwrEl = document.getElementById('stat-withdrawal-rate');
+    const iwrVal = parseFloat(iwrDisplay);
+    iwrEl.className = `text-3xl font-extrabold mt-1 ${iwrVal > 5 ? 'text-red-400' : iwrVal > 4 ? 'text-amber-400' : 'text-emerald-400'}`;
+    
+    const sRate = document.getElementById('stat-success-rate');
+    sRate.textContent = `${res.successRate}%`;
+    sRate.className = `text-3xl font-extrabold mt-1 ${res.successRate >= 85 ? 'text-emerald-400' : res.successRate >= 60 ? 'text-amber-400' : 'text-red-400'}`;
+    
+    document.getElementById('stat-bridge-survival').textContent = `${res.bridgeSurvivalRate}%`;
+    
+    let estate = Math.round(res.medianEstate);
+    if (estate > 0) {
+        document.getElementById('stat-median-estate').textContent = `$${estate.toLocaleString()}`;
+        document.getElementById('stat-median-estate').className = "text-3xl font-extrabold text-white mt-1";
+        document.getElementById('stat-median-estate-sub').textContent = "Expressed in future dollars";
+    } else {
+        document.getElementById('stat-median-estate').textContent = `$0`;
+        document.getElementById('stat-median-estate').className = "text-3xl font-extrabold text-red-400 mt-1";
+        
+        // FIXED: Scans the new uncrossed p50 bounds array instead of the non-existent index 2 array
+        let depAge = endAge;
+        if (res.p50Bounds && res.p50Bounds.length > 0) {
+            for (let i = 0; i < res.p50Bounds.length; i++) { 
+                if (res.p50Bounds[i] <= 0) { 
+                    depAge = startAge + i;
+                    break; 
+                } 
             }
-
-            document.getElementById('stat-p50').textContent = estate > 0 ? `$${estate.toLocaleString()}` : "$0";
-            document.getElementById('stat-p25').textContent = res.p25 > 0 ? `$${Math.round(res.p25).toLocaleString()}` : "$0";
-            document.getElementById('stat-p10').textContent = res.p10 > 0 ? `$${Math.round(res.p10).toLocaleString()}` : "$0";
-
-            const taxPlaceholder = document.getElementById('right-rail-tax-placeholder');
-            if (taxPlaceholder) {
-                taxPlaceholder.className = "mt-4 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-center";
-                taxPlaceholder.innerHTML = `<span class="text-slate-400 text-[10px] uppercase font-semibold mb-1">Median Lifetime Tax Paid</span><span class="font-mono text-xl font-bold text-amber-400">$${Math.round(res.medianLifetimeTax).toLocaleString()}</span><span class="text-[9px] text-slate-500 mt-1">Total projected drag across brackets</span>`;
-            }
-
-            const rule55Container = document.getElementById('right-rail-55-placeholder');
-            if (rule55Container) {
-                if (retirementAge >= 55 && document.getElementById('toggle-5515').checked) {
-                    rule55Container.innerHTML = `<div class="w-12 h-12 rounded-full border-[3px] border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-sm shadow bg-emerald-500/10 shrink-0">${res.savedBy5515Rate}%</div><div class="flex-1"><p class="text-[11px] font-bold text-slate-300">Portfolios Saved</p><p class="text-[9px] text-slate-500 mt-0.5">Survived gap via direct early penalty bypass.</p></div>`;
-                } else {
-                    rule55Container.innerHTML = `<div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shrink-0"><span class="material-icons text-lg">${retirementAge>=55?'lock_open':'lock'}</span></div><p class="text-[10px] text-slate-400 flex-1 leading-relaxed">${retirementAge>=55?'Exemption unlocked. Toggle switch to observe impact.':'Exemption locked. Rule only applies when targeting milestone age 55+.'}</p>`;
-                }
-            }
-
-            lastSimulatedMetrics = { successRate: `${res.successRate}%`, bridgeSurvivalRate: `${res.bridgeSurvivalRate}%`, medianEstateAge90: `$${estate.toLocaleString()}`, projectedNWRetirement: `$${Math.round(res.medianRetNW).toLocaleString()}` };
         }
+        document.getElementById('stat-median-estate-sub').innerHTML = `<span class="text-red-400 font-bold">Depleted at Age ${depAge}</span>`;
+    }
+
+    document.getElementById('stat-p50').textContent = estate > 0 ? `$${estate.toLocaleString()}` : "$0";
+    document.getElementById('stat-p25').textContent = res.p25 > 0 ? `$${Math.round(res.p25).toLocaleString()}` : "$0";
+    document.getElementById('stat-p10').textContent = res.p10 > 0 ? `$${Math.round(res.p10).toLocaleString()}` : "$0";
+
+    const taxPlaceholder = document.getElementById('right-rail-tax-placeholder');
+    if (taxPlaceholder) {
+        taxPlaceholder.className = "mt-4 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-center";
+        taxPlaceholder.innerHTML = `<span class="text-slate-400 text-[10px] uppercase font-semibold mb-1">Median Lifetime Tax Paid</span><span class="font-mono text-xl font-bold text-amber-400">$${Math.round(res.medianLifetimeTax).toLocaleString()}</span><span class="text-[9px] text-slate-500 mt-1">Total projected drag across brackets</span>`;
+    }
+
+    const rule55Container = document.getElementById('right-rail-55-placeholder');
+    if (rule55Container) {
+        if (retirementAge >= 55 && document.getElementById('toggle-5515').checked) {
+            rule55Container.innerHTML = `<div class="w-12 h-12 rounded-full border-[3px] border-emerald-500 flex items-center justify-center text-emerald-400 font-bold text-sm shadow bg-emerald-500/10 shrink-0">${res.savedBy5515Rate}%</div><div class="flex-1"><p class="text-[11px] font-bold text-slate-300">Portfolios Saved</p><p class="text-[9px] text-slate-500 mt-0.5">Survived gap via direct early penalty bypass.</p></div>`;
+        } else {
+            rule55Container.innerHTML = `<div class="w-12 h-12 rounded-full border-[3px] border-slate-700 flex items-center justify-center text-slate-500 font-bold text-xs shrink-0"><span class="material-icons text-lg">${retirementAge>=55?'lock_open':'lock'}</span></div><p class="text-[10px] text-slate-400 flex-1 leading-relaxed">${retirementAge>=55?'Exemption unlocked. Toggle switch to observe impact.':'Exemption locked. Rule only applies when targeting milestone age 55+.'}</p>`;
+        }
+    }
+
+    lastSimulatedMetrics = { successRate: `${res.successRate}%`, bridgeSurvivalRate: `${res.bridgeSurvivalRate}%`, medianEstateAge90: `$${estate.toLocaleString()}`, projectedNWRetirement: `$${Math.round(res.medianRetNW).toLocaleString()}` };
+}
 
         function renderChartData() {
     // 1. Guard Condition: Short-circuit if the worker hasn't returned data yet
