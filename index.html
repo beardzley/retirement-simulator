@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.5.8</title>
+    <title>Beardzley Retirement Simulator v.9.5.9</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.8</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.9</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -1134,113 +1134,106 @@
                     terminalCombinedValues.push(totalRemainingAssets - currentDebt);
                 }
 
-                // --- HYBRID DATA EXTRACTION LAYER ---
-                let runPerformance = terminalCombinedValues.map((val, idx) => ({ val, idx }));
-                runPerformance.sort((a, b) => a.val - b.val);
-                let medianIdx = runPerformance[Math.floor(iterations * 0.50)].idx;
+            // --- HYBRID DATA EXTRACTION LAYER (FIXED FOR CONE MODEL) ---
+let runPerformance = terminalCombinedValues.map((val, idx) => ({ val, idx }));
+runPerformance.sort((a, b) => a.val - b.val);
 
-                let p10Combined = [], p25Combined = [], p50Combined = [];
-                let p10Bridge = [], p25Bridge = [], p50Bridge = [];
-                let p10Core = [], p25Core = [], p50Core = [];
-                let p10Cash = [], p25Cash = [], p50Cash = [];
+// 1. Grab ONE actual, jagged simulated run index to act as the "Journey" path.
+// We select the run that finished right at the median at Age 90.
+let activeJourneyIdx = runPerformance[Math.floor(iterations * 0.50)].idx;
 
-                let compBridge = [], compCore = [], compCash = [];
-                let p50DrawdownBridge = [], p50DrawdownCore = [], p50DrawdownCash = [], p50DrawdownHsa = [];
-                let p50DrawdownSs = [], p50DrawdownPension = [];
+let p10Combined = [], p25Combined = [], p50Combined = [];
+let compBridge = [], compCore = [], compCash = [];
+let p50DrawdownBridge = [], p50DrawdownCore = [], p50DrawdownCash = [], p50DrawdownHsa = [];
+let p50DrawdownSs = [], p50DrawdownPension = [];
 
-                for (let y = 0; y < yearsCount; y++) {
-                    compBridge.push(yearlyBridge[y][medianIdx]);
-                    compCore.push(yearlyCore[y][medianIdx]);
-                    compCash.push(yearlyCash[y][medianIdx]);
+// Arrays to hold the specific, single journey path values over time
+let journeyCombined = [], journeyBridge = [], journeyCore = [], journeyCash = [];
 
-                    p50DrawdownBridge.push(yearlyDrawdownBridge[y][medianIdx]);
-                    p50DrawdownCore.push(yearlyDrawdownCore[y][medianIdx]);
-                    p50DrawdownCash.push(yearlyDrawdownCash[y][medianIdx]);
-                    p50DrawdownHsa.push(yearlyDrawdownHsa[y][medianIdx]);
-                    p50DrawdownSs.push(yearlyDrawdownSs[y][medianIdx]);
-                    p50DrawdownPension.push(yearlyDrawdownPension[y][medianIdx]);
+for (let y = 0; y < yearsCount; y++) {
+    // Collect specific components from the single chosen journey path
+    journeyCombined.push(yearlyCombined[y][activeJourneyIdx]);
+    journeyBridge.push(yearlyBridge[y][activeJourneyIdx]);
+    journeyCore.push(yearlyCore[y][activeJourneyIdx]);
+    journeyCash.push(yearlyCash[y][activeJourneyIdx]);
 
-                    let yearComb = new Float32Array(yearlyCombined[y]); yearComb.sort();
-                    let yearBrid = new Float32Array(yearlyBridge[y]); yearBrid.sort();
-                    let yearCor = new Float32Array(yearlyCore[y]); yearCor.sort();
-                    let yearCas = new Float32Array(yearlyCash[y]); yearCas.sort();
+    // Use the median path index for compositions and drawdowns to match the journey
+    compBridge.push(yearlyBridge[y][activeJourneyIdx]);
+    compCore.push(yearlyCore[y][activeJourneyIdx]);
+    compCash.push(yearlyCash[y][activeJourneyIdx]);
 
-                    p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
-                    p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
-                    p50Combined.push(yearComb[Math.floor(iterations * 0.50)]);
+    p50DrawdownBridge.push(yearlyDrawdownBridge[y][activeJourneyIdx]);
+    p50DrawdownCore.push(yearlyDrawdownCore[y][activeJourneyIdx]);
+    p50DrawdownCash.push(yearlyDrawdownCash[y][activeJourneyIdx]);
+    p50DrawdownHsa.push(yearlyDrawdownHsa[y][activeJourneyIdx]);
+    p50DrawdownSs.push(yearlyDrawdownSs[y][activeJourneyIdx]);
+    p50DrawdownPension.push(yearlyDrawdownPension[y][activeJourneyIdx]);
 
-                    p10Bridge.push(yearBrid[Math.floor(iterations * 0.10)]);
-                    p25Bridge.push(yearBrid[Math.floor(iterations * 0.25)]);
-                    p50Bridge.push(yearBrid[Math.floor(iterations * 0.50)]);
+    // 2. Cross-Sectional Sorting: Sort each year independently for the mathematical cone bounds.
+    let yearComb = new Float32Array(yearlyCombined[y]); yearComb.sort();
 
-                    p10Core.push(yearCor[Math.floor(iterations * 0.10)]);
-                    p25Core.push(yearCor[Math.floor(iterations * 0.25)]);
-                    p50Core.push(yearCor[Math.floor(iterations * 0.50)]);
+    p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
+    p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
+    p50Combined.push(yearComb[Math.floor(iterations * 0.50)]); 
+}
 
-                    p10Cash.push(yearCas[Math.floor(iterations * 0.10)]);
-                    p25Cash.push(yearCas[Math.floor(iterations * 0.25)]);
-                    p50Cash.push(yearCas[Math.floor(iterations * 0.50)]);
-                }
+terminalCombinedValues.sort((a, b) => a - b);
+retirementCombinedValues.sort((a, b) => a - b);
+retirementBridgeValues.sort((a, b) => a - b);
+retirementCoreValues.sort((a, b) => a - b);
+retirementCashValues.sort((a, b) => a - b);
+lifetimeTaxValues.sort((a, b) => a - b);
 
-                terminalCombinedValues.sort((a, b) => a - b);
-                retirementCombinedValues.sort((a, b) => a - b);
-                retirementBridgeValues.sort((a, b) => a - b);
-                retirementCoreValues.sort((a, b) => a - b);
-                retirementCashValues.sort((a, b) => a - b);
-                lifetimeTaxValues.sort((a, b) => a - b);
-                
-                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] ||
-                    (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
-                
-                let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
-                let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
-                let inflatedHealthSpend = (d.retirementAge < 65) ?
-                    (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
-                
-                let projectedDebt = d.debtStart;
-                for(let a = d.startAge; a < d.retirementAge; a++) {
-                    if (projectedDebt > 0) projectedDebt = (projectedDebt * (1 + d.debtRate)) - Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate));
-                }
-                let activeDebtSpend = (projectedDebt > 0) ? Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
-                
-                let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend + activeDebtSpend) / Math.max(medianRetAssets, 1)) * 100;
-                let isExceeded = rawWRate > 100 || medianRetAssets <= 0;
-                let wRate = Math.min(rawWRate, 100).toFixed(1);
-                
-                self.postMessage({
-                    successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
-                    bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
-                    savedBy5515Rate: Math.round((savedBy5515Count / iterations) * 100),
-                    medianEstate: terminalCombinedValues[Math.floor(iterations / 2)],
-                    medianRetNW: medianRetAssets,
-                    medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
-                    medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
-                    medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
-                    medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
-                    
-                    p10: terminalCombinedValues[Math.floor(iterations * 0.10)],
-                    p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
-                    
-                    withdrawalRate: wRate,
-                    iwrExceeded: isExceeded,
-                    plotCombined: [p10Combined, p25Combined, p50Combined], 
-                    plotBridge: [p10Bridge, p25Bridge, p50Bridge], 
-                    plotCore: [p10Core, p25Core, p50Core],
-                    plotCash: [p10Cash, p25Cash, p50Cash],
-                    
-                    compBridge: compBridge,
-                    compCore: compCore,
-                    compCash: compCash,
-                    
-                    drawdownBridge: p50DrawdownBridge,
-                    drawdownCore: p50DrawdownCore,
-                    drawdownCash: p50DrawdownCash,
-                    drawdownHsa: p50DrawdownHsa,
-                    drawdownSs: p50DrawdownSs,
-                    drawdownPension: p50DrawdownPension
-                });
-            };
-        `;
+let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
+let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
+let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
+let inflatedHealthSpend = (d.retirementAge < 65) ? (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
+
+let projectedDebt = d.debtStart;
+for(let a = d.startAge; a < d.retirementAge; a++) {
+    if (projectedDebt > 0) projectedDebt = (projectedDebt * (1 + d.debtRate)) - Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate));
+}
+let activeDebtSpend = (projectedDebt > 0) ? Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
+
+let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend + activeDebtSpend) / Math.max(medianRetAssets, 1)) * 100;
+let isExceeded = rawWRate > 100 || medianRetAssets <= 0;
+let wRate = Math.min(rawWRate, 100).toFixed(1);
+
+// Single, clean data payload dispatch configuration
+self.postMessage({
+    successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
+    bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
+    savedBy5515Rate: Math.round((savedBy5515Count / iterations) * 100),
+    medianEstate: terminalCombinedValues[Math.floor(iterations / 2)],
+    medianRetNW: medianRetAssets,
+    medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
+    medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
+    medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
+    medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
+    
+    p10Bounds: p10Combined,
+    p25Bounds: p25Combined,
+    p50Bounds: p50Combined,
+    
+    withdrawalRate: wRate,
+    iwrExceeded: isExceeded,
+    plotCombined: [journeyCombined], 
+    plotBridge: [journeyBridge], 
+    plotCore: [journeyCore],
+    plotCash: [journeyCash],
+    
+    compBridge: compBridge,
+    compCore: compCore,
+    compCash: compCash,
+    
+    drawdownBridge: p50DrawdownBridge,
+    drawdownCore: p50DrawdownCore,
+    drawdownCash: p50DrawdownCash,
+    drawdownHsa: p50DrawdownHsa,
+    drawdownSs: p50DrawdownSs,
+    drawdownPension: p50DrawdownPension
+});
+};
 
         // ============================================================================
         // --- SURFACE UI LAYER (MAIN BROWSER THREAD) ---
@@ -1380,6 +1373,7 @@
         let simTimeout = null;
         let globalPlotData = { combined: [], bridge: [], core: [], cash: [] }, lastSimulatedMetrics = {};
         let ingestedRows = [];
+        let lastSimulatedMetricsRaw = {};
 
         function renderCompositionChart(res) {
             const ctx = document.getElementById('compositionChart').getContext('2d');
@@ -1427,22 +1421,29 @@
             }
         }
         
-        function initWorker() {
-            const blob = new Blob([workerCode], { type: 'application/javascript' });
-            simWorker = new Worker(URL.createObjectURL(blob));
-            simWorker.onmessage = function(e) {
-                const res = e.data;
-                document.getElementById('processing-indicator').classList.add('hidden');
-                globalPlotData.combined = res.plotCombined;
-                globalPlotData.bridge = res.plotBridge;
-                globalPlotData.core = res.plotCore;
-                globalPlotData.cash = res.plotCash;
-                updateDOMMetrics(res);
-                renderChartData();
-                renderDrawdownChart(res);
-                renderCompositionChart(res);
-            };
-        }
+        // Replace your old initWorker() function with this:
+function initWorker() {
+    const blob = new Blob([workerCode], { type: 'application/javascript' }); [cite: 356]
+    simWorker = new Worker(URL.createObjectURL(blob)); [cite: 357]
+    
+    simWorker.onmessage = function(e) {
+        const res = e.data; [cite: 357]
+        
+        // ---> THIS LINE CAPTURES THE RAW DATA PAYLOAD FOR THE CONE PLOT:
+        lastSimulatedMetricsRaw = res; 
+        
+        document.getElementById('processing-indicator').classList.add('hidden'); [cite: 358]
+        globalPlotData.combined = res.plotCombined; [cite: 358]
+        globalPlotData.bridge = res.plotBridge; [cite: 358]
+        globalPlotData.core = res.plotCore; [cite: 358]
+        globalPlotData.cash = res.plotCash; [cite: 358]
+        
+        updateDOMMetrics(res); [cite: 358]
+        renderChartData(); [cite: 358]
+        renderDrawdownChart(res); [cite: 358]
+        renderCompositionChart(res); [cite: 358]
+    };
+}
         
         function updateRsu(v) { 
     rsuVest = parseInt(v); 
@@ -1526,33 +1527,102 @@ function updateEspp(v) {
         }
 
         function renderChartData() {
-            const ctx = document.getElementById('monteCarloChart').getContext('2d');
-            let paths = globalPlotData[activeTab]; if (!paths || paths.length === 0) return;
-            let timeline = []; for (let a = startAge; a <= endAge; a++) timeline.push(a);
-            
-            let color = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : activeTab === 'core' ? '#9333ea' : '#eab308';
-            if (chartInstance) chartInstance.destroy();
-            
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: timeline,
-                    datasets: [
-                        { label: "10th Percentile (Severe Drag)", data: paths[0], borderColor: '#ef4444', borderWidth: 2, borderDash: [4,4], pointRadius: 0, fill: false },
-                        { label: "25th Percentile (Below Average)", data: paths[1], borderColor: '#f59e0b', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false },
-                        { label: "Median Target Universe", data: paths[2], borderColor: color, borderWidth: 3, pointRadius: 0, fill: false }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
-                    scales: {
-                        x: { grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
-                        y: { max: 10000000, grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : '$' + (v/1000).toFixed(0) + 'k' } }
-                    }
+    const ctx = document.getElementById('monteCarloChart').getContext('2d');
+    
+    // Grab the single, jagged journey timeline line
+    let journeyPath = globalPlotData[activeTab][0]; 
+    if (!journeyPath || journeyPath.length === 0) return;
+    
+    let timeline = [];
+    for (let a = startAge; a <= endAge; a++) timeline.push(a);
+    
+    let color = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : activeTab === 'core' ? '#9333ea' : '#eab308';
+    if (chartInstance) chartInstance.destroy();
+    
+    // Prepare data arrays based on whether we are looking at the overall Combined portfolio or individual accounts
+    let datasets = [];
+    
+    if (activeTab === 'combined') {
+        // Only render the shaded probability bounds when evaluating the full combined view
+        datasets = [
+            {
+                label: "10th Percentile Floor (Severe Drag)",
+                data: lastSimulatedMetricsRaw.p10Bounds,
+                borderColor: 'rgba(239, 68, 68, 0.4)',
+                borderWidth: 1,
+                pointRadius: 0,
+                fill: false
+            },
+            {
+                label: "25th Percentile Bound (Below Average)",
+                data: lastSimulatedMetricsRaw.p25Bounds,
+                borderColor: 'rgba(245, 158, 11, 0.4)',
+                borderWidth: 1,
+                pointRadius: 0,
+                fill: '-1', // Fills the space between 10th and 25th percentiles
+                backgroundColor: 'rgba(239, 68, 68, 0.04)'
+            },
+            {
+                label: "50th Percentile Bound (Median Market)",
+                data: lastSimulatedMetricsRaw.p50Bounds,
+                borderColor: 'rgba(16, 185, 129, 0.3)',
+                borderWidth: 1,
+                pointRadius: 0,
+                fill: '-1', // Fills the space between 25th and 50th percentiles
+                backgroundColor: 'rgba(245, 158, 11, 0.04)'
+            },
+            {
+                label: "Your Simulated Journey (Jagged Sample Baseline)",
+                data: journeyPath,
+                borderColor: color,
+                borderWidth: 3.5,
+                pointRadius: 0,
+                fill: false,
+                tension: 0.15 // Small curve adjustment to emphasize the custom path timeline
+            }
+        ];
+    } else {
+        // For individual sub-accounts, render just the specific timeline journey line to avoid mixed metrics
+        datasets = [
+            {
+                label: `Simulated Account Path (${activeTab.toUpperCase()})`,
+                data: journeyPath,
+                borderColor: color,
+                borderWidth: 3,
+                pointRadius: 0,
+                fill: false
+            }
+        ];
+    }
+
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timeline,
+            datasets: datasets
+        },
+        options: {
+            responsive: true, 
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                x: { grid: { color: 'rgba(51, 65, 85, 0.04)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+                y: { 
+                    max: 10000000, 
+                    grid: { color: 'rgba(51, 65, 85, 0.04)' }, 
+                    ticks: { 
+                        color: '#64748b', 
+                        font: { size: 10 }, 
+                        callback: (v) => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : '$' + (v/1000).toFixed(0) + 'k' 
+                    } 
                 }
-            });
+            }
         }
+    });
+}
 
         function renderDrawdownChart(res) {
             const ctx = document.getElementById('drawdownChart').getContext('2d');
