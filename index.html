@@ -1135,111 +1135,107 @@
                     
                     terminalCombinedValues.push(totalRemainingAssets - currentDebt);
                 }
+// --- HYBRID DATA EXTRACTION LAYER (FIXED FOR CONE MODEL) ---
+            let runPerformance = terminalCombinedValues.map((val, idx) => ({ val, idx }));
+            runPerformance.sort((a, b) => a.val - b.val);
 
-            // --- HYBRID DATA EXTRACTION LAYER (FIXED FOR CONE MODEL) ---
-let runPerformance = terminalCombinedValues.map((val, idx) => ({ val, idx }));
-runPerformance.sort((a, b) => a.val - b.val);
+            // 1. Grab ONE actual, jagged simulated run index to act as the "Journey" path.
+            let activeJourneyIdx = runPerformance[Math.floor(iterations * 0.50)].idx;
+            let p10Combined = [], p25Combined = [], p50Combined = [];
+            let compBridge = [], compCore = [], compCash = [];
+            let p50DrawdownBridge = [], p50DrawdownCore = [], p50DrawdownCash = [], p50DrawdownHsa = [];
+            let p50DrawdownSs = [], p50DrawdownPension = [];
+            
+            // Arrays to hold the specific, single journey path values over time
+            let journeyCombined = [], journeyBridge = [], journeyCore = [], journeyCash = [];
+            
+            for (let y = 0; y < yearsCount; y++) {
+                // Collect specific components from the single chosen journey path
+                journeyCombined.push(yearlyCombined[y][activeJourneyIdx]);
+                journeyBridge.push(yearlyBridge[y][activeJourneyIdx]);
+                journeyCore.push(yearlyCore[y][activeJourneyIdx]);
+                journeyCash.push(yearlyCash[y][activeJourneyIdx]);
 
-// 1. Grab ONE actual, jagged simulated run index to act as the "Journey" path.
-// We select the run that finished right at the median at Age 90.
-let activeJourneyIdx = runPerformance[Math.floor(iterations * 0.50)].idx;
+                // Use the median path index for compositions and drawdowns to match the journey
+                compBridge.push(yearlyBridge[y][activeJourneyIdx]);
+                compCore.push(yearlyCore[y][activeJourneyIdx]);
+                compCash.push(yearlyCash[y][activeJourneyIdx]);
 
-let p10Combined = [], p25Combined = [], p50Combined = [];
-let compBridge = [], compCore = [], compCash = [];
-let p50DrawdownBridge = [], p50DrawdownCore = [], p50DrawdownCash = [], p50DrawdownHsa = [];
-let p50DrawdownSs = [], p50DrawdownPension = [];
+                p50DrawdownBridge.push(yearlyDrawdownBridge[y][activeJourneyIdx]);
+                p50DrawdownCore.push(yearlyDrawdownCore[y][activeJourneyIdx]);
+                p50DrawdownCash.push(yearlyDrawdownCash[y][activeJourneyIdx]);
+                p50DrawdownHsa.push(yearlyDrawdownHsa[y][activeJourneyIdx]);
+                p50DrawdownSs.push(yearlyDrawdownSs[y][activeJourneyIdx]);
+                p50DrawdownPension.push(yearlyDrawdownPension[y][activeJourneyIdx]);
 
-// Arrays to hold the specific, single journey path values over time
-let journeyCombined = [], journeyBridge = [], journeyCore = [], journeyCash = [];
+                // 2. Cross-Sectional Sorting: Sort each year independently for the mathematical cone bounds.
+                let yearComb = new Float32Array(yearlyCombined[y]); yearComb.sort();
 
-for (let y = 0; y < yearsCount; y++) {
-    // Collect specific components from the single chosen journey path
-    journeyCombined.push(yearlyCombined[y][activeJourneyIdx]);
-    journeyBridge.push(yearlyBridge[y][activeJourneyIdx]);
-    journeyCore.push(yearlyCore[y][activeJourneyIdx]);
-    journeyCash.push(yearlyCash[y][activeJourneyIdx]);
+                p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
+                p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
+                p50Combined.push(yearComb[Math.floor(iterations * 0.50)]);
+            }
 
-    // Use the median path index for compositions and drawdowns to match the journey
-    compBridge.push(yearlyBridge[y][activeJourneyIdx]);
-    compCore.push(yearlyCore[y][activeJourneyIdx]);
-    compCash.push(yearlyCash[y][activeJourneyIdx]);
+            terminalCombinedValues.sort((a, b) => a - b);
+            retirementCombinedValues.sort((a, b) => a - b);
+            retirementBridgeValues.sort((a, b) => a - b);
+            retirementCoreValues.sort((a, b) => a - b);
+            retirementCashValues.sort((a, b) => a - b);
+            lifetimeTaxValues.sort((a, b) => a - b);
+            
+            let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
+            let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
+            let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
+            let inflatedHealthSpend = (d.retirementAge < 65) ? (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
 
-    p50DrawdownBridge.push(yearlyDrawdownBridge[y][activeJourneyIdx]);
-    p50DrawdownCore.push(yearlyDrawdownCore[y][activeJourneyIdx]);
-    p50DrawdownCash.push(yearlyDrawdownCash[y][activeJourneyIdx]);
-    p50DrawdownHsa.push(yearlyDrawdownHsa[y][activeJourneyIdx]);
-    p50DrawdownSs.push(yearlyDrawdownSs[y][activeJourneyIdx]);
-    p50DrawdownPension.push(yearlyDrawdownPension[y][activeJourneyIdx]);
+            let projectedDebt = d.debtStart;
+            for(let a = d.startAge; a < d.retirementAge; a++) {
+                if (projectedDebt > 0) projectedDebt = (projectedDebt * (1 + d.debtRate)) - Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate));
+            }
+            let activeDebtSpend = (projectedDebt > 0) ? Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
+            let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend + activeDebtSpend) / Math.max(medianRetAssets, 1)) * 100;
+            let isExceeded = rawWRate > 100 || medianRetAssets <= 0;
+            let wRate = Math.min(rawWRate, 100).toFixed(1);
 
-    // 2. Cross-Sectional Sorting: Sort each year independently for the mathematical cone bounds.
-    let yearComb = new Float32Array(yearlyCombined[y]); yearComb.sort();
-
-    p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
-    p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
-    p50Combined.push(yearComb[Math.floor(iterations * 0.50)]); 
-}
-
-terminalCombinedValues.sort((a, b) => a - b);
-retirementCombinedValues.sort((a, b) => a - b);
-retirementBridgeValues.sort((a, b) => a - b);
-retirementCoreValues.sort((a, b) => a - b);
-retirementCashValues.sort((a, b) => a - b);
-lifetimeTaxValues.sort((a, b) => a - b);
-
-let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
-let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
-let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
-let inflatedHealthSpend = (d.retirementAge < 65) ? (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
-
-let projectedDebt = d.debtStart;
-for(let a = d.startAge; a < d.retirementAge; a++) {
-    if (projectedDebt > 0) projectedDebt = (projectedDebt * (1 + d.debtRate)) - Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate));
-}
-let activeDebtSpend = (projectedDebt > 0) ? Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
-
-let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend + activeDebtSpend) / Math.max(medianRetAssets, 1)) * 100;
-let isExceeded = rawWRate > 100 || medianRetAssets <= 0;
-let wRate = Math.min(rawWRate, 100).toFixed(1);
-
-// Single, clean data payload dispatch configuration
-self.postMessage({
-    successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
-    bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
-    savedBy5515Rate: Math.round((savedBy5515Count / iterations) * 100),
-    medianEstate: terminalCombinedValues[Math.floor(iterations / 2)],
-    medianRetNW: medianRetAssets,
-    medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
-    medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
-    medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
-    medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
-    
-    // RESTORED METRIC OBJECT PARAMETERS FOR SIDEBAR ACCURACY
-    p10: terminalCombinedValues[Math.floor(iterations * 0.10)],
-    p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
-    
-    p10Bounds: p10Combined,
-    p25Bounds: p25Combined,
-    p50Bounds: p50Combined,
-    
-    withdrawalRate: wRate,
-    iwrExceeded: isExceeded,
-    plotCombined: [journeyCombined], 
-    plotBridge: [journeyBridge], 
-    plotCore: [journeyCore],
-    plotCash: [journeyCash],
-    
-    compBridge: compBridge,
-    compCore: compCore,
-    compCash: compCash,
-    
-    drawdownBridge: p50DrawdownBridge,
-    drawdownCore: p50DrawdownCore,
-    drawdownCash: p50DrawdownCash,
-    drawdownHsa: p50DrawdownHsa,
-    drawdownSs: p50DrawdownSs,
-    drawdownPension: p50DrawdownPension
-});
-
+            // Single, clean data payload dispatch configuration
+            self.postMessage({
+                successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
+                bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
+                savedBy5515Rate: Math.round((savedBy5515Count / iterations) * 100),
+                medianEstate: terminalCombinedValues[Math.floor(iterations / 2)],
+                medianRetNW: medianRetAssets,
+                medianRetBridge: retirementBridgeValues[Math.floor(iterations / 2)] || d.bridgeCapital,
+                medianRetCore: retirementCoreValues[Math.floor(iterations / 2)] || d.coreCapital,
+                medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
+                medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
+                
+                p10: terminalCombinedValues[Math.floor(iterations * 0.10)],
+                p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
+                
+                p10Bounds: p10Combined,
+                p25Bounds: p25Combined,
+                p50Bounds: p50Combined,
+                
+                withdrawalRate: wRate,
+                iwrExceeded: isExceeded,
+                plotCombined: [journeyCombined], 
+                plotBridge: [journeyBridge], 
+                plotCore: [journeyCore],
+                plotCash: [journeyCash],
+                
+                compBridge: compBridge,
+                compCore: compCore,
+                compCash: compCash,
+                
+                drawdownBridge: p50DrawdownBridge,
+                drawdownCore: p50DrawdownCore,
+                drawdownCash: p50DrawdownCash,
+                drawdownHsa: p50DrawdownHsa,
+                drawdownSs: p50DrawdownSs,
+                drawdownPension: p50DrawdownPension
+            });
+        };
+    \`;
         // ============================================================================
         // --- SURFACE UI LAYER (MAIN BROWSER THREAD) ---
         // ============================================================================
