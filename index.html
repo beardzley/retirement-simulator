@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beardzley Retirement Simulator v.9.5.9</title>
+    <title>Beardzley Retirement Simulator v.9.5.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
         <div>
             <div class="flex items-center gap-2">
                 <span class="material-icons text-emerald-400">precision_manufacturing</span>
-                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.9</h1>
+                <h1 class="text-xl font-bold tracking-tight text-white">Beardzley Retirement Simulator v.9.5.8</h1>
             </div>
             <p class="text-xs text-slate-400 mt-1">Statistical Iterations: 10,000 | Confidence Interval Margin: ±0.9%</p>
         </div>
@@ -670,7 +670,6 @@
         </section>
     </main>
     <script>
-      <script>
         // ============================================================================
         // --- WEB WORKER ENGINE LAYER (BACKGROUND SIMULATION) ---
         // ============================================================================
@@ -697,6 +696,7 @@
             const retirementCoreValues = [];
             const retirementCashValues = [];
             const lifetimeTaxValues = [];
+
             const preCalcSpending = new Float32Array(MAX_YEARS);
             const preCalcHealthPremium = new Float32Array(MAX_YEARS);
             const preCalcLtcCost = new Float32Array(MAX_YEARS);
@@ -781,7 +781,7 @@
                 let runningSpending = d.spending;
                 let runningHealthPremium = d.healthPremium;
                 let runningLtcCost = d.ltcCost;
-
+                
                 for (let y = 0; y < totalYears; y++) {
                     const age = d.startAge + y;
                     let phaseMultiplier = 1.0;
@@ -793,6 +793,7 @@
                     preCalcSpending[y] = runningSpending * phaseMultiplier;
                     preCalcHealthPremium[y] = (age < 65) ? runningHealthPremium : 0;
                     preCalcLtcCost[y] = (age >= 60) ? runningLtcCost : 0;
+                    
                     if (age >= d.pensionStartAge) {
                         preCalcPension[y] = d.pensionPayout * Math.pow(1 + d.inflationRate, y);
                     } else {
@@ -881,24 +882,29 @@
                         const annualReturnCore = d.meanReturnCore + (d.stdDevCore * correlatedT2);
 
                         const currentYearIndex = age - d.startAge;
-                        
+
                         if (age < d.retirementAge) {
-                            const netBridgeReturn = annualReturnBridge - 0.003;
-                            let safeRsu = d.rsuVest || 0;
-                            let safeEspp = d.esppContribution || 0;
-                            let netRsuShares = safeRsu * 0.70;
-                            
-                            currentBridge = (currentBridge + d.savingsTaxable + safeEspp + netRsuShares) * (1 + netBridgeReturn);
-                            currentCore = (currentCore + d.savings401k + d.employerMatch + d.megaBackdoor + d.savingsRoth) * (1 + annualReturnCore);
-                            currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
-                            currentCash = (currentCash + d.savingsCash) * (1 + d.cashYield);
-                            
-                            if (currentDebt > 0) {
-                                let actualPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
-                                currentDebt = (currentDebt * (1 + d.debtRate)) - actualPayment;
-                                if (currentDebt < 0) currentDebt = 0;
-                            }
-                        } else {
+    const netBridgeReturn = annualReturnBridge - 0.003;
+    
+    // Safely parse the new equity variables
+    let safeRsu = d.rsuVest || 0;
+    let safeEspp = d.esppContribution || 0;
+    let netRsuShares = safeRsu * 0.70; // 30% haircut for supplemental taxes
+    
+    // Add ESPP and Net RSUs to the Bridge growth math
+    currentBridge = (currentBridge + d.savingsTaxable + safeEspp + netRsuShares) * (1 + netBridgeReturn);
+    
+    // These remain exactly as they were!
+    currentCore = (currentCore + d.savings401k + d.employerMatch + d.megaBackdoor + d.savingsRoth) * (1 + annualReturnCore);
+    currentHSA = (currentHSA + d.savingsHSA) * (1 + annualReturnCore);
+    currentCash = (currentCash + d.savingsCash) * (1 + d.cashYield);
+    
+    if (currentDebt > 0) {
+        let actualPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
+        currentDebt = (currentDebt * (1 + d.debtRate)) - actualPayment;
+        if (currentDebt < 0) currentDebt = 0;
+    }
+} else {
                             let activeDebtPayment = 0;
                             if (currentDebt > 0) {
                                 activeDebtPayment = Math.min(d.debtPayment, currentDebt * (1 + d.debtRate));
@@ -908,7 +914,7 @@
                                                 activeDebtPayment + 
                                                 preCalcHealthPremium[currentYearIndex] + 
                                                 preCalcLtcCost[currentYearIndex];
-                            
+
                             let availableSS = (age >= 67) ? (d.socialSecurity * 12) : 0;
                             let availablePension = preCalcPension[currentYearIndex] > 0 ? preCalcPension[currentYearIndex] : 0;
 
@@ -958,8 +964,8 @@
                                 
                                 let is5515Eligible = (d.rule5515 && d.retirementAge >= 55 && age >= 55);
                                 let canPullCore = (age >= 60 || is5515Eligible);
-                                let extraCorePull = 0;
                                 
+                                let extraCorePull = 0;
                                 if (canPullCore) {
                                     extraCorePull = Math.min(remGross, currentCore - corePull);
                                     corePull += extraCorePull;
@@ -996,15 +1002,22 @@
                             }
                             
                             runLifetimeTax += estimatedTax;
+                            
                             if (pathInsolvent) {
                                 currentBridge = 0;
                                 currentCash = 0;
 
+                                // HARD LOCK EXECUTED: If you go insolvent before age 60/exemption, Core remains fully protected.
+                                // You cannot pull from it to cover lifestyle. Your timeline experiences a funding collapse.
                                 for (let padAge = age; padAge < d.endAge; padAge++) {
                                     const padYearIndex = padAge - d.startAge;
+                                    
                                     let is5515EligibleGap = (d.rule5515 && d.retirementAge >= 55 && padAge >= 55);
                                     let coreUnlocked = (padAge >= 60 || is5515EligibleGap);
-                                    let gapNeed = preCalcSpending[padYearIndex] + preCalcHealthPremium[padYearIndex] + preCalcLtcCost[padYearIndex];
+
+                                    let gapNeed = preCalcSpending[padYearIndex] + 
+                                                  preCalcHealthPremium[padYearIndex] + 
+                                                  preCalcLtcCost[padYearIndex];
                                                   
                                     let availableSSGap = (padAge >= 67) ? (d.socialSecurity * 12) : 0;
                                     let availablePensionGap = (preCalcPension[padYearIndex] > 0) ? preCalcPension[padYearIndex] : 0;
@@ -1014,7 +1027,7 @@
                                     
                                     let pensionPullGap = Math.min(gapNeed, availablePensionGap);
                                     gapNeed = Math.max(0, gapNeed - pensionPullGap);
-                                    
+
                                     let actualCorePull = 0;
                                     let actualHsaPull = 0;
 
@@ -1023,7 +1036,7 @@
                                         let yearTaxBracket = preCalcTaxBrackets[padYearIndex];
                                         let estimatedGapTax = calculateAnnualTax(gapNeed, 0, 0.50, 0, yearTaxBracket);
                                         let totalGapPull = gapNeed + estimatedGapTax;
-                                        
+
                                         if (currentCore > totalGapPull) {
                                             actualCorePull = totalGapPull;
                                             currentCore = (currentCore - totalGapPull) * (1 + annualReturnCore);
@@ -1036,15 +1049,14 @@
                                                 currentHSA = Math.max(0, (currentHSA - remainder) * (1 + annualReturnCore));
                                             }
                                         }
-                                   } else {
-                                        // Core is locked.
-                                        // It simply compounds on the market untouched.
+                                    } else {
+                                        // Core is locked. It simply compounds on the market untouched.
                                         currentCore *= (1 + annualReturnCore);
                                         if (padAge >= 65) currentHSA *= (1 + annualReturnCore);
                                     }
 
                                     if (currentDebt > 0) currentDebt = currentDebt * (1 + d.debtRate);
-                                    
+
                                     yearlyCombined[yearIdx][i] = currentBridge + currentCore + currentHSA + currentCash - currentDebt;
                                     yearlyBridge[yearIdx][i] = currentBridge;
                                     yearlyCore[yearIdx][i] = currentCore;
@@ -1070,7 +1082,7 @@
                             yearlyDrawdownHsa[yearIdx][i] = hsaPull;
                             yearlyDrawdownSs[yearIdx][i] = ssPull;
                             yearlyDrawdownPension[yearIdx][i] = pensionPull;
-                            
+
                             let excessCash = totalGenerated - (netNeed + estimatedTax);
                             currentBridge -= brokeragePull;
                             currentCash -= cashPull;
@@ -1083,7 +1095,7 @@
                             }
                             
                             if (excessCash > 0) currentCash += excessCash;
-                            
+
                             currentBridge *= (1 + annualReturnBridge);
                             currentCore *= (1 + annualReturnCore);
                             currentHSA *= (1 + annualReturnCore);
@@ -1113,7 +1125,6 @@
                     
                     lifetimeTaxValues.push(runLifetimeTax);
                     let totalRemainingAssets = currentBridge + currentCore + currentHSA + currentCash;
-                    
                     if (!pathInsolvent && totalRemainingAssets > currentDebt) lifetimeSuccessCount++;
                     if (bridgeSurvivedTo60 && !pathInsolvent) bridgeSuccessCount++;
                     if (d.rule5515 && d.retirementAge >= 55 && !bridgeSurvivedTo60 && !pathInsolvent) {
@@ -1123,46 +1134,52 @@
                     terminalCombinedValues.push(totalRemainingAssets - currentDebt);
                 }
 
-                // --- HYBRID DATA EXTRACTION LAYER (FIXED FOR CONE MODEL) ---
+                // --- HYBRID DATA EXTRACTION LAYER ---
                 let runPerformance = terminalCombinedValues.map((val, idx) => ({ val, idx }));
                 runPerformance.sort((a, b) => a.val - b.val);
-
-                // 1. Grab ONE actual, jagged simulated run index to act as the "Journey" path.
-                let activeJourneyIdx = runPerformance[Math.floor(iterations * 0.50)].idx;
+                let medianIdx = runPerformance[Math.floor(iterations * 0.50)].idx;
 
                 let p10Combined = [], p25Combined = [], p50Combined = [];
+                let p10Bridge = [], p25Bridge = [], p50Bridge = [];
+                let p10Core = [], p25Core = [], p50Core = [];
+                let p10Cash = [], p25Cash = [], p50Cash = [];
+
                 let compBridge = [], compCore = [], compCash = [];
                 let p50DrawdownBridge = [], p50DrawdownCore = [], p50DrawdownCash = [], p50DrawdownHsa = [];
                 let p50DrawdownSs = [], p50DrawdownPension = [];
 
-                // Arrays to hold the specific, single journey path values over time
-                let journeyCombined = [], journeyBridge = [], journeyCore = [], journeyCash = [];
-
                 for (let y = 0; y < yearsCount; y++) {
-                    // Collect specific components from the single chosen journey path
-                    journeyCombined.push(yearlyCombined[y][activeJourneyIdx]);
-                    journeyBridge.push(yearlyBridge[y][activeJourneyIdx]);
-                    journeyCore.push(yearlyCore[y][activeJourneyIdx]);
-                    journeyCash.push(yearlyCash[y][activeJourneyIdx]);
+                    compBridge.push(yearlyBridge[y][medianIdx]);
+                    compCore.push(yearlyCore[y][medianIdx]);
+                    compCash.push(yearlyCash[y][medianIdx]);
 
-                    // Use the median path index for compositions and drawdowns to match the journey
-                    compBridge.push(yearlyBridge[y][activeJourneyIdx]);
-                    compCore.push(yearlyCore[y][activeJourneyIdx]);
-                    compCash.push(yearlyCash[y][activeJourneyIdx]);
+                    p50DrawdownBridge.push(yearlyDrawdownBridge[y][medianIdx]);
+                    p50DrawdownCore.push(yearlyDrawdownCore[y][medianIdx]);
+                    p50DrawdownCash.push(yearlyDrawdownCash[y][medianIdx]);
+                    p50DrawdownHsa.push(yearlyDrawdownHsa[y][medianIdx]);
+                    p50DrawdownSs.push(yearlyDrawdownSs[y][medianIdx]);
+                    p50DrawdownPension.push(yearlyDrawdownPension[y][medianIdx]);
 
-                    p50DrawdownBridge.push(yearlyDrawdownBridge[y][activeJourneyIdx]);
-                    p50DrawdownCore.push(yearlyDrawdownCore[y][activeJourneyIdx]);
-                    p50DrawdownCash.push(yearlyDrawdownCash[y][activeJourneyIdx]);
-                    p50DrawdownHsa.push(yearlyDrawdownHsa[y][activeJourneyIdx]);
-                    p50DrawdownSs.push(yearlyDrawdownSs[y][activeJourneyIdx]);
-                    p50DrawdownPension.push(yearlyDrawdownPension[y][activeJourneyIdx]);
-
-                    // 2. Cross-Sectional Sorting: Sort each year independently for the mathematical cone bounds.
                     let yearComb = new Float32Array(yearlyCombined[y]); yearComb.sort();
+                    let yearBrid = new Float32Array(yearlyBridge[y]); yearBrid.sort();
+                    let yearCor = new Float32Array(yearlyCore[y]); yearCor.sort();
+                    let yearCas = new Float32Array(yearlyCash[y]); yearCas.sort();
 
                     p10Combined.push(yearComb[Math.floor(iterations * 0.10)]);
                     p25Combined.push(yearComb[Math.floor(iterations * 0.25)]);
                     p50Combined.push(yearComb[Math.floor(iterations * 0.50)]);
+
+                    p10Bridge.push(yearBrid[Math.floor(iterations * 0.10)]);
+                    p25Bridge.push(yearBrid[Math.floor(iterations * 0.25)]);
+                    p50Bridge.push(yearBrid[Math.floor(iterations * 0.50)]);
+
+                    p10Core.push(yearCor[Math.floor(iterations * 0.10)]);
+                    p25Core.push(yearCor[Math.floor(iterations * 0.25)]);
+                    p50Core.push(yearCor[Math.floor(iterations * 0.50)]);
+
+                    p10Cash.push(yearCas[Math.floor(iterations * 0.10)]);
+                    p25Cash.push(yearCas[Math.floor(iterations * 0.25)]);
+                    p50Cash.push(yearCas[Math.floor(iterations * 0.50)]);
                 }
 
                 terminalCombinedValues.sort((a, b) => a - b);
@@ -1171,22 +1188,25 @@
                 retirementCoreValues.sort((a, b) => a - b);
                 retirementCashValues.sort((a, b) => a - b);
                 lifetimeTaxValues.sort((a, b) => a - b);
-
-                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] || (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
+                
+                let medianRetAssets = retirementCombinedValues[Math.floor(iterations / 2)] ||
+                    (d.bridgeCapital + d.coreCapital + d.hsaStart + d.cashReserve - d.debtStart);
+                
                 let yearsToRetire = Math.max(0, d.retirementAge - d.startAge);
                 let inflatedBaseSpend = d.spending * Math.pow(1 + d.inflationRate, yearsToRetire);
-                let inflatedHealthSpend = (d.retirementAge < 65) ? (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
-
+                let inflatedHealthSpend = (d.retirementAge < 65) ?
+                    (d.healthPremium * Math.pow(1 + d.medInflationRate, yearsToRetire)) : 0;
+                
                 let projectedDebt = d.debtStart;
                 for(let a = d.startAge; a < d.retirementAge; a++) {
                     if (projectedDebt > 0) projectedDebt = (projectedDebt * (1 + d.debtRate)) - Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate));
                 }
                 let activeDebtSpend = (projectedDebt > 0) ? Math.min(d.debtPayment, projectedDebt * (1 + d.debtRate)) : 0;
+                
                 let rawWRate = ((inflatedBaseSpend + inflatedHealthSpend + activeDebtSpend) / Math.max(medianRetAssets, 1)) * 100;
                 let isExceeded = rawWRate > 100 || medianRetAssets <= 0;
                 let wRate = Math.min(rawWRate, 100).toFixed(1);
-
-                // Single, clean data payload dispatch configuration
+                
                 self.postMessage({
                     successRate: Math.round((lifetimeSuccessCount / iterations) * 100),
                     bridgeSurvivalRate: Math.round((bridgeSuccessCount / iterations) * 100),
@@ -1198,20 +1218,15 @@
                     medianRetCash: retirementCashValues[Math.floor(iterations / 2)] || d.cashReserve,
                     medianLifetimeTax: lifetimeTaxValues[Math.floor(iterations / 2)],
                     
-                    // RESTORED METRIC OBJECT PARAMETERS FOR SIDEBAR ACCURACY
                     p10: terminalCombinedValues[Math.floor(iterations * 0.10)],
                     p25: terminalCombinedValues[Math.floor(iterations * 0.25)],
                     
-                    p10Bounds: p10Combined,
-                    p25Bounds: p25Combined,
-                    p50Bounds: p50Combined,
-                    
                     withdrawalRate: wRate,
                     iwrExceeded: isExceeded,
-                    plotCombined: [journeyCombined], 
-                    plotBridge: [journeyBridge], 
-                    plotCore: [journeyCore],
-                    plotCash: [journeyCash],
+                    plotCombined: [p10Combined, p25Combined, p50Combined], 
+                    plotBridge: [p10Bridge, p25Bridge, p50Bridge], 
+                    plotCore: [p10Core, p25Core, p50Core],
+                    plotCash: [p10Cash, p25Cash, p50Cash],
                     
                     compBridge: compBridge,
                     compCore: compCore,
@@ -1236,8 +1251,7 @@
         }
 
         function parseCSVLine(text) {
-            let p = '', r = [];
-            let q = false;
+            let p = '', r = []; let q = false;
             for (let i = 0; i < text.length; i++) {
                 let c = text[i], next = text[i+1];
                 if (c === '"') { if (q && next === '"') { p += '"'; i++; } else { q = !q; } }
@@ -1278,6 +1292,7 @@
                                 let label = parsed[descIdx] || parsed[0] || "Unknown Holding";
                                 let accountName = parsed[accountIdx] || "Brokerage Asset";
                                 if (label.toLowerCase().includes('total') || label.toLowerCase().includes('disclaimer')) continue;
+                                
                                 let combinedLabelText = `${accountName} ${label}`.toLowerCase();
                                 let pool = 'bridge';
                                 if (combinedLabelText.includes('hsa') || combinedLabelText.includes('health savings')) pool = 'hsa';
@@ -1295,8 +1310,7 @@
         }
 
         function openCSVModal() {
-            const container = document.getElementById('csv-rows-container');
-            container.innerHTML = '';
+            const container = document.getElementById('csv-rows-container'); container.innerHTML = '';
             ingestedRows.forEach((row, idx) => {
                 const item = document.createElement('div');
                 item.className = "flex justify-between items-center bg-slate-950/40 border border-slate-800 p-3 rounded-xl gap-4";
@@ -1333,8 +1347,7 @@
         }
 
         function applyIngestedBalances() {
-            let b = 0, c = 0, h = 0;
-            ingestedRows.forEach(r => { if(r.pool==='bridge') b+=r.value; else if(r.pool==='core') c+=r.value; else h+=r.value; });
+            let b = 0, c = 0, h = 0; ingestedRows.forEach(r => { if(r.pool==='bridge') b+=r.value; else if(r.pool==='core') c+=r.value; else h+=r.value; });
             bridgeCapital = Math.round(b); coreCapital = Math.round(c); hsaStart = Math.round(h);
             document.getElementById('input-bridge').value = bridgeCapital; document.getElementById('label-bridge').textContent = `$${bridgeCapital.toLocaleString()}`;
             document.getElementById('input-core').value = coreCapital; document.getElementById('label-core').textContent = `$${coreCapital.toLocaleString()}`;
@@ -1348,7 +1361,7 @@
             getItem(key) { try { return window.localStorage ? window.localStorage.getItem(key) : null; } catch (e) { return null; } },
             setItem(key, val) { try { if (window.localStorage) window.localStorage.setItem(key, val); return true; } catch (e) { return false; } }
         };
-        
+
         let startAge = 37, retirementAge = 45, endAge = 90;
         let salary = 150000;
         let rsuVest = 0;
@@ -1367,13 +1380,13 @@
         let simTimeout = null;
         let globalPlotData = { combined: [], bridge: [], core: [], cash: [] }, lastSimulatedMetrics = {};
         let ingestedRows = [];
-        let lastSimulatedMetricsRaw = {};
 
         function renderCompositionChart(res) {
             const ctx = document.getElementById('compositionChart').getContext('2d');
             let timeline = [];
             for (let a = startAge; a <= endAge; a++) timeline.push(a);
             if (window.compositionChartInstance) window.compositionChartInstance.destroy();
+            
             window.compositionChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -1417,16 +1430,13 @@
         function initWorker() {
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             simWorker = new Worker(URL.createObjectURL(blob));
-            
             simWorker.onmessage = function(e) {
                 const res = e.data;
-                lastSimulatedMetricsRaw = res;
                 document.getElementById('processing-indicator').classList.add('hidden');
                 globalPlotData.combined = res.plotCombined;
                 globalPlotData.bridge = res.plotBridge;
                 globalPlotData.core = res.plotCore;
                 globalPlotData.cash = res.plotCash;
-                
                 updateDOMMetrics(res);
                 renderChartData();
                 renderDrawdownChart(res);
@@ -1435,18 +1445,18 @@
         }
         
         function updateRsu(v) { 
-            rsuVest = parseInt(v);
-            document.getElementById('label-rsu').textContent = `$${rsuVest.toLocaleString()}/yr`; 
-            updateLabelElements(); 
-            runMonteCarloSimulation(); 
-        }
+    rsuVest = parseInt(v); 
+    document.getElementById('label-rsu').textContent = `$${rsuVest.toLocaleString()}/yr`; 
+    updateLabelElements(); 
+    runMonteCarloSimulation(); 
+}
 
-        function updateEspp(v) { 
-            esppContribution = parseInt(v); 
-            document.getElementById('label-espp').textContent = `$${esppContribution.toLocaleString()}/yr`; 
-            updateLabelElements(); 
-            runMonteCarloSimulation();
-        }
+function updateEspp(v) { 
+    esppContribution = parseInt(v); 
+    document.getElementById('label-espp').textContent = `$${esppContribution.toLocaleString()}/yr`; 
+    updateLabelElements(); 
+    runMonteCarloSimulation(); 
+}
 
         function runMonteCarloSimulation() {
             document.getElementById('processing-indicator').classList.remove('hidden');
@@ -1488,16 +1498,8 @@
             } else {
                 document.getElementById('stat-median-estate').textContent = `$0`;
                 document.getElementById('stat-median-estate').className = "text-3xl font-extrabold text-red-400 mt-1";
-                
                 let depAge = endAge;
-                if (res.p50Bounds && res.p50Bounds.length > 0) {
-                    for (let i = 0; i < res.p50Bounds.length; i++) { 
-                        if (res.p50Bounds[i] <= 0) { 
-                            depAge = startAge + i;
-                            break; 
-                        } 
-                    }
-                }
+                for (let i = 0; i < res.plotCombined[2].length; i++) { if (res.plotCombined[2][i] <= 0) { depAge = startAge + i; break; } }
                 document.getElementById('stat-median-estate-sub').innerHTML = `<span class="text-red-400 font-bold">Depleted at Age ${depAge}</span>`;
             }
 
@@ -1524,103 +1526,29 @@
         }
 
         function renderChartData() {
-            // 1. Guard Condition: Short-circuit if the worker hasn't returned data yet
-            if (!lastSimulatedMetricsRaw || !lastSimulatedMetricsRaw.p10Bounds) {
-                return;
-            }
-
             const ctx = document.getElementById('monteCarloChart').getContext('2d');
-            
-            // Grab the single, jagged journey timeline line
-            let journeyPath = globalPlotData[activeTab][0];
-            if (!journeyPath || journeyPath.length === 0) return;
-            
-            let timeline = [];
-            for (let a = startAge; a <= endAge; a++) timeline.push(a);
+            let paths = globalPlotData[activeTab]; if (!paths || paths.length === 0) return;
+            let timeline = []; for (let a = startAge; a <= endAge; a++) timeline.push(a);
             
             let color = activeTab === 'combined' ? '#10b981' : activeTab === 'bridge' ? '#3b82f6' : activeTab === 'core' ? '#9333ea' : '#eab308';
             if (chartInstance) chartInstance.destroy();
             
-            // Prepare data arrays based on whether we are looking at the overall Combined portfolio or individual accounts
-            let datasets = [];
-            
-            if (activeTab === 'combined') {
-                // Only render the shaded probability bounds when evaluating the full combined view
-                datasets = [
-                    {
-                        label: "10th Percentile Floor (Severe Drag)",
-                        data: lastSimulatedMetricsRaw.p10Bounds,
-                        borderColor: 'rgba(239, 68, 68, 0.4)',
-                        borderWidth: 1,
-                        pointRadius: 0,
-                        fill: false
-                    },
-                    {
-                        label: "25th Percentile Bound (Below Average)",
-                        data: lastSimulatedMetricsRaw.p25Bounds,
-                        borderColor: 'rgba(245, 158, 11, 0.4)',
-                        borderWidth: 1,
-                        pointRadius: 0,
-                        fill: '-1', // Fills the space between 10th and 25th percentiles
-                        backgroundColor: 'rgba(239, 68, 68, 0.04)'
-                    },
-                    {
-                        label: "50th Percentile Bound (Median Market)",
-                        data: lastSimulatedMetricsRaw.p50Bounds,
-                        borderColor: 'rgba(16, 185, 129, 0.3)',
-                        borderWidth: 1,
-                        pointRadius: 0,
-                        fill: '-1', // Fills the space between 25th and 50th percentiles
-                        backgroundColor: 'rgba(245, 158, 11, 0.04)'
-                    },
-                    {
-                        label: "Your Simulated Journey (Jagged Sample Baseline)",
-                        data: journeyPath,
-                        borderColor: color,
-                        borderWidth: 3.5,
-                        pointRadius: 0,
-                        fill: false,
-                        tension: 0.15 // Small curve adjustment to emphasize the custom path timeline
-                    }
-                ];
-            } else {
-                // For individual sub-accounts, render just the specific timeline journey line to avoid mixed metrics
-                datasets = [
-                    {
-                        label: `Simulated Account Path (${activeTab.toUpperCase()})`,
-                        data: journeyPath,
-                        borderColor: color,
-                        borderWidth: 3,
-                        pointRadius: 0,
-                        fill: false
-                    }
-                ];
-            }
-
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: timeline,
-                    datasets: datasets
+                    datasets: [
+                        { label: "10th Percentile (Severe Drag)", data: paths[0], borderColor: '#ef4444', borderWidth: 2, borderDash: [4,4], pointRadius: 0, fill: false },
+                        { label: "25th Percentile (Below Average)", data: paths[1], borderColor: '#f59e0b', borderWidth: 2, borderDash: [2,2], pointRadius: 0, fill: false },
+                        { label: "Median Target Universe", data: paths[2], borderColor: color, borderWidth: 3, pointRadius: 0, fill: false }
+                    ]
                 },
                 options: {
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } },
-                        tooltip: { mode: 'index', intersect: false }
-                    },
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
                     scales: {
-                        x: { grid: { color: 'rgba(51, 65, 85, 0.04)' }, ticks: { color: '#64748b', font: { size: 10 } } },
-                        y: { 
-                            max: 10000000, 
-                            grid: { color: 'rgba(51, 65, 85, 0.04)' }, 
-                            ticks: { 
-                                color: '#64748b', 
-                                font: { size: 10 }, 
-                                callback: (v) => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : '$' + (v/1000).toFixed(0) + 'k' 
-                            } 
-                        }
+                        x: { grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+                        y: { max: 10000000, grid: { color: 'rgba(51, 65, 85, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M' : '$' + (v/1000).toFixed(0) + 'k' } }
                     }
                 }
             });
@@ -1629,8 +1557,7 @@
         function renderDrawdownChart(res) {
             const ctx = document.getElementById('drawdownChart').getContext('2d');
             let offsetIndex = Math.max(0, retirementAge - startAge);
-            let timeline = [];
-            for (let a = retirementAge; a <= endAge; a++) timeline.push(a);
+            let timeline = []; for (let a = retirementAge; a <= endAge; a++) timeline.push(a);
 
             if (drawdownChartInstance) drawdownChartInstance.destroy();
             drawdownChartInstance = new Chart(ctx, {
@@ -1679,6 +1606,7 @@
             const state = getFullStateObject();
             const code = btoa(JSON.stringify(state));
             const annualSavings = savingsTaxable + savings401k + savingsRoth + savingsHSA + savingsCash;
+            
             const textSummary = `==================================================
 RETIREMENT SUMMARY REPORT
 ==================================================
@@ -1701,6 +1629,7 @@ SAVINGS CONTRIBUTION VELOCITY
 * Gross Yearly Salary Baseline: $${salary.toLocaleString()}/yr
 * Total Capital Contributions:  $${annualSavings.toLocaleString()}/yr
 ==================================================`;
+
             try { navigator.clipboard.writeText(code); showNotification("Save state copied to clipboard!"); } catch(e){}
             const w = window.open('', '_blank');
             if (w) {
@@ -1710,8 +1639,7 @@ SAVINGS CONTRIBUTION VELOCITY
         }
 
         function saveCurrentAsBaseline() {
-            const state = getFullStateObject();
-            savedBaseline = state;
+            const state = getFullStateObject(); savedBaseline = state;
             safeStorage.setItem('retirement_sim_baseline_10k', JSON.stringify(state));
             showNotification("Your custom configuration baseline is locked!"); updateBaselineButtons();
         }
@@ -1722,15 +1650,11 @@ SAVINGS CONTRIBUTION VELOCITY
         }
 
         function applyState(s) {
-            startAge = s.startAge;
-            retirementAge = s.retirementAge; salary = s.salary !== undefined ? s.salary : 150000;
-            savingsTaxable = s.savingsTaxable || 0;
-            savings401k = s.savings401k || 0;
+            startAge = s.startAge; retirementAge = s.retirementAge; salary = s.salary !== undefined ? s.salary : 150000;
+            savingsTaxable = s.savingsTaxable || 0; savings401k = s.savings401k || 0;
             employerMatch = s.employerMatch || 0; megaBackdoor = s.megaBackdoor || 0;
-            savingsRoth = s.savingsRoth || 0;
-            savingsHSA = s.savingsHSA || 0; savingsCash = s.savingsCash || 0;
-            lock401k = s.lock401k || false; lockMatch = s.lockMatch || false;
-            lockMega = s.lockMega || false;
+            savingsRoth = s.savingsRoth || 0; savingsHSA = s.savingsHSA || 0; savingsCash = s.savingsCash || 0;
+            lock401k = s.lock401k || false; lockMatch = s.lockMatch || false; lockMega = s.lockMega || false;
             spending = s.spending; bridgeCapital = s.bridgeCapital || 0; coreCapital = s.coreCapital || 0;
             hsaStart = s.hsaStart || 0; cashReserve = s.cashReserve || 0;
             meanReturnBridge = s.meanReturnBridge || 0.08; stdDevBridge = s.stdDevBridge || 0.18;
@@ -1741,8 +1665,7 @@ SAVINGS CONTRIBUTION VELOCITY
             healthPremium = s.healthPremium || 0; socialSecurity = s.socialSecurity || 0;
             pensionPayout = s.pensionPayout || 0; pensionStartAge = s.pensionStartAge || 55;
             ltcCost = s.ltcCost || 0; stateTaxRate = s.stateTaxRate || 0;
-            rule5515 = s.rule5515 || false;
-            dynamicSpending = s.dynamicSpending !== undefined ? s.dynamicSpending : true;
+            rule5515 = s.rule5515 || false; dynamicSpending = s.dynamicSpending !== undefined ? s.dynamicSpending : true;
             debtStart = s.debtStart || 0; debtRate = s.debtRate !== undefined ? s.debtRate : 0.05; debtPayment = s.debtPayment || 0;
 
             document.getElementById('input-current-age').value = startAge; document.getElementById('label-current-age').textContent = startAge;
@@ -1782,6 +1705,7 @@ SAVINGS CONTRIBUTION VELOCITY
             if(document.getElementById('toggle-bridge-derisk')) document.getElementById('toggle-bridge-derisk').checked = s.bridgeDerisk || false;
 
             if (typeof enforce415cLimits === 'function') enforce415cLimits('none');
+
             if(document.getElementById('icon-lock-401k')) {
                 document.getElementById('icon-lock-401k').textContent = lock401k ? 'lock' : 'lock_open';
                 document.getElementById('icon-lock-401k').className = lock401k ? 'material-icons text-[14px] text-cyan-400' : 'material-icons text-[14px]';
@@ -1800,22 +1724,15 @@ SAVINGS CONTRIBUTION VELOCITY
             updateLabelElements(); setRetirementAge(retirementAge);
         }
 
-        function updateCurrentAge(v) { startAge = parseInt(v); document.getElementById('label-current-age').textContent = startAge;
-            const valid = [45, 50, 55, 62, 67]; if(startAge > retirementAge){ let next = valid.find(a => a >= startAge) || 67; setRetirementAge(next); } else { setRetirementAge(retirementAge); } }
+        function updateCurrentAge(v) { startAge = parseInt(v); document.getElementById('label-current-age').textContent = startAge; const valid = [45, 50, 55, 62, 67]; if(startAge > retirementAge){ let next = valid.find(a => a >= startAge) || 67; setRetirementAge(next); } else { setRetirementAge(retirementAge); } }
         function setRetirementAge(age) {
-            if(age < startAge) return;
-            retirementAge = age;
+            if(age < startAge) return; retirementAge = age;
             const input = document.getElementById('input-retirement-age'); const label = document.getElementById('label-retirement-age');
-            if(input && label) { input.value = age;
-            label.textContent = age; input.min = startAge > 45 ? Math.min(startAge, 67) : 45;
-            }
+            if(input && label) { input.value = age; label.textContent = age; input.min = startAge > 45 ? Math.min(startAge, 67) : 45; }
             const t55 = document.getElementById('toggle-5515'); const l55 = document.getElementById('label-5515-text');
-            if(age >= 55) { t55.disabled = false; if(l55) l55.classList.remove('opacity-40'); if(!rule5515){ t55.checked = true; rule5515 = true;
-            } }
-            else { t55.disabled = true;
-            t55.checked = false; rule5515 = false; if(l55) l55.classList.add('opacity-40'); }
-            const derisk = document.getElementById('label-bridge-derisk');
-            if(derisk) derisk.textContent = `De-risk at Age ${age}`;
+            if(age >= 55) { t55.disabled = false; if(l55) l55.classList.remove('opacity-40'); if(!rule5515){ t55.checked = true; rule5515 = true; } }
+            else { t55.disabled = true; t55.checked = false; rule5515 = false; if(l55) l55.classList.add('opacity-40'); }
+            const derisk = document.getElementById('label-bridge-derisk'); if(derisk) derisk.textContent = `De-risk at Age ${age}`;
             runMonteCarloSimulation();
         }
 
@@ -1886,64 +1803,83 @@ SAVINGS CONTRIBUTION VELOCITY
         function updateDebtStart(v) { debtStart = parseInt(v); document.getElementById('label-debt-start').textContent = `$${debtStart.toLocaleString()}`; runMonteCarloSimulation(); }
         function updateDebtRate(v) { debtRate = parseFloat(v)/100; document.getElementById('label-debt-rate').textContent = `${v}%`; runMonteCarloSimulation(); }
         function updateDebtPayment(v) { debtPayment = parseInt(v); document.getElementById('label-debt-payment').textContent = `$${debtPayment.toLocaleString()}/yr`; updateLabelElements(); runMonteCarloSimulation(); }
-        
         function calculateActiveTaxes(gross, preTax401k, preTaxHSA) {
-            const ssWageBaseLimit = 176100;
-            const ssTax = Math.min(gross, ssWageBaseLimit) * 0.062;
-            const medicareTax = gross * 0.0145;
-            const medicareSurtaxThreshold = 200000;
-            const medicareSurtax = Math.max(0, gross - medicareSurtaxThreshold) * 0.009;
-            const totalFica = ssTax + medicareTax + medicareSurtax;
+    // 1. FICA Taxes (Payroll)
+    const ssWageBaseLimit = 176100; // Estimated baseline limit
+    const ssTax = Math.min(gross, ssWageBaseLimit) * 0.062;
+    
+    const medicareTax = gross * 0.0145;
+    const medicareSurtaxThreshold = 200000; // Single filer threshold
+    const medicareSurtax = Math.max(0, gross - medicareSurtaxThreshold) * 0.009;
+    
+    const totalFica = ssTax + medicareTax + medicareSurtax;
 
-            const standardDeduction = 16100;
-            let taxableIncome = Math.max(0, gross - preTax401k - preTaxHSA - standardDeduction);
-            const brackets = [
-                { limit: 12400, rate: 0.10 },
-                { limit: 50400, rate: 0.12 },
-                { limit: 105700, rate: 0.22 },
-                { limit: 201775, rate: 0.24 },
-                { limit: 256225, rate: 0.32 },
-                { limit: 640600, rate: 0.35 },
-                { limit: Infinity, rate: 0.37 }
-            ];
+    // 2. Federal Income Tax
+    // Deduct pre-tax contributions and standard deduction to find Taxable Income
+    const standardDeduction = 16100; // Syncing with your simulator's Year 0 baseline
+    let taxableIncome = Math.max(0, gross - preTax401k - preTaxHSA - standardDeduction);
+    
+    // 2026 Progressive Brackets (matching your Year 0 baseline)
+    const brackets = [
+        { limit: 12400, rate: 0.10 },
+        { limit: 50400, rate: 0.12 },
+        { limit: 105700, rate: 0.22 },
+        { limit: 201775, rate: 0.24 },
+        { limit: 256225, rate: 0.32 },
+        { limit: 640600, rate: 0.35 },
+        { limit: Infinity, rate: 0.37 }
+    ];
 
-            let federalTax = 0;
-            let prevLimit = 0;
-            for (let b of brackets) {
-                if (taxableIncome > b.limit) {
-                    federalTax += (b.limit - prevLimit) * b.rate;
-                    prevLimit = b.limit;
-                } else {
-                    federalTax += (taxableIncome - prevLimit) * b.rate;
-                    break;
-                }
-            }
-            const stateTax = taxableIncome * stateTaxRate;
-            return totalFica + federalTax + stateTax;
+    let federalTax = 0;
+    let prevLimit = 0;
+
+    for (let b of brackets) {
+        if (taxableIncome > b.limit) {
+            federalTax += (b.limit - prevLimit) * b.rate;
+            prevLimit = b.limit;
+        } else {
+            federalTax += (taxableIncome - prevLimit) * b.rate;
+            break;
         }
+    }
 
+    // 3. State Income Tax
+    // Grabs the value directly from your existing stateTaxRate slider variable
+    // Applied as a flat percentage against federal taxable income
+    const stateTax = taxableIncome * stateTaxRate; 
+
+    return totalFica + federalTax + stateTax;
+}
+
+        
         function updateLabelElements() {
-            let tot = savingsTaxable + savings401k + megaBackdoor + savingsRoth + savingsHSA + savingsCash;
-            document.getElementById('label-total-savings').textContent = `Total: $${(tot + esppContribution).toLocaleString()}/yr`;
-            
-            let w = document.getElementById('warning-deficit');
-            if(w) { 
-                let netRsuCash = rsuVest * 0.70;
-                let totalLiquidInflow = salary + netRsuCash;
-                let outOfPocketSavings = savingsTaxable + savingsRoth + savingsCash;
-                let totalCheckingOutflow = spending + debtPayment + outOfPocketSavings;
-                
-                if (totalCheckingOutflow > totalLiquidInflow) { 
-                    let shortfall = totalCheckingOutflow - totalLiquidInflow;
-                    w.innerHTML = `<span class="material-icons text-[12px]">error_outline</span> Cash Shortfall: $${Math.round(shortfall).toLocaleString()}`;
-                    w.title = `Out-of-pocket expenses ($${Math.round(totalCheckingOutflow).toLocaleString()}) exceed liquid cash inflows ($${Math.round(totalLiquidInflow).toLocaleString()}).`;
-                    w.className = "flex text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 shadow-sm items-center gap-1 cursor-help";
-                } else { 
-                    w.classList.add('hidden'); 
-                    w.classList.remove('flex');
-                } 
-            }
-        }
+    // Total savings across everything (for the UI total counter)
+    let tot = savingsTaxable + savings401k + megaBackdoor + savingsRoth + savingsHSA + savingsCash;
+    document.getElementById('label-total-savings').textContent = `Total: $${(tot + esppContribution).toLocaleString()}/yr`;
+    
+    let w = document.getElementById('warning-deficit');
+    if(w) { 
+        // 1. INFLOWS: Your actual bank deposits + estimated liquid RSUs
+        let netRsuCash = rsuVest * 0.70; 
+        let totalLiquidInflow = salary + netRsuCash; // 'salary' is now your $97k Net Pay slider
+        
+        // 2. OUTFLOWS: Only count what you pay for out of your checking account!
+        // (Ignores 401k, HSA, Mega-Backdoor, and ESPP because they were already deducted)
+        let outOfPocketSavings = savingsTaxable + savingsRoth + savingsCash;
+        let totalCheckingOutflow = spending + debtPayment + outOfPocketSavings;
+        
+        // 3. THE CHECK
+        if (totalCheckingOutflow > totalLiquidInflow) { 
+            let shortfall = totalCheckingOutflow - totalLiquidInflow;
+            w.innerHTML = `<span class="material-icons text-[12px]">error_outline</span> Cash Shortfall: $${Math.round(shortfall).toLocaleString()}`;
+            w.title = `Out-of-pocket expenses ($${Math.round(totalCheckingOutflow).toLocaleString()}) exceed liquid cash inflows ($${Math.round(totalLiquidInflow).toLocaleString()}).`;
+            w.className = "flex text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/30 shadow-sm items-center gap-1 cursor-help";
+        } else { 
+            w.classList.add('hidden'); 
+            w.classList.remove('flex');
+        } 
+    }
+}
 
         function toggleLock(t) {
             let lock = t==='401k'? !lock401k : t==='match'? !lockMatch : !lockMega;
@@ -1988,6 +1924,8 @@ SAVINGS CONTRIBUTION VELOCITY
             runMonteCarloSimulation();
         };
     </script>
+</body>
+</html>
       
 </body>
 </html>
